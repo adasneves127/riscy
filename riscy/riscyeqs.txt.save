@@ -1,0 +1,8 @@
+jmpfar' = op0' or oppart2'
+pcclk = fe' nand ( ( (ex' or skip' or not(doskip) ) and (ex' or jmpfar') ) and (ex' or jalr')) 
+pcload' = (ex' or jmpfar') and (ex' or jalr')
+rdrsclk' = de'
+inc'=op8' or oppart0'
+dec'=op8' or oppart1'
+addsub=sub' nand inc'
+incdec=inc' nand dec'

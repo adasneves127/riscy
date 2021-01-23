@@ -1,0 +1,38 @@
+jmpfar' = op0' or oppart2'
+pcclk = fe' nand ( ( (ex' or skip' or not(doskip) ) and (ex' or jmpfar') ) and (ex' or jalr')) 
+pcload' = (ex' or jmpfar') and (ex' or jalr')
+addsub sub' nand inc'
+incdec = inc' nand dec'
+rdrsclk = de'
+addwb = ex' or (add' and sub' and inc' and dec')
+sli' = ir7 nand ir6
+//regclk = (sub' and load' and jmpfar' and jalr' and nand' and add' and sli' and inc' and dec' and in') or ex'
+regclk = (sub' and load' and jmpfar' and jalr' and nand' and add' and sli' and inc' and dec' and in' and pop') or ex'
+pcwb' = pcload'
+sliwb = ex' or sli'
+//memsel = (ex' and cycle3') or (load' and store')
+memsel = fe'
+//memrd = fe' and (ex' or load')
+memrd = fe' and (ex' or (load' and pop'))
+irclk = fe'
+//memwr = store' or cycle3'
+memwr = (store' and push') or cycle3'
+nandwb = ex' or nand'
+page' = op0' or rs==3'
+dpageclk = ex' or page'
+ipageclk = not(ex' or jmpfar') and clk
+out' = op8' or rs==2'
+//rdwb = (op0' and jalr' and store' and out') or (ex' and cycle3')
+//rdwb = (ex' and cycle3') or (store' and out' and page')
+rdwb = (ex' and cycle3') or (store' and out' and page' and stackpage')
+halt' = op0' or rs==1'
+in' = op8' or rs==3'
+inwb' = in' or ex'
+inclr' = in' or cycle3'
+push' = opa' or rs==0'
+pop' = opa' or rs==1'
+memsel2 = not ((ex' and cycle3') or opa')
+stackdown'up = push'
+stackclock'=(push' or de') and (pop' or cycle3')
+stackpage' = opa' or rs==2'
+stackpage_wb = stackpage' or ex'

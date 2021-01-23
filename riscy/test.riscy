@@ -1,0 +1,30 @@
+;this is a test program
+
+#start	
+	sub b,b
+	sub c,c
+	lli b,4
+	lli c,3
+	sub b,c
+	add c,c
+
+;b goes 0->4->1
+;c goes 0->3->6
+
+#test1	
+	sub d,d
+	lui d,3
+	add d,c
+;d is 36
+	lli a,#test1
+	lui a,#test1
+	load b,[a]
+
+;b is sub d,d (1f)
+
+	store b,[d]
+;1f to 36
+	jlez c,[a]
+	sub c,c
+	jalr a,a
+	jlez c,[a]

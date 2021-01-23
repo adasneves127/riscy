@@ -1,0 +1,50 @@
+; computes mem[fe] fibonacci numbers, saves them to mem[ff]
+; A,B are current nums
+; C is counter
+
+#start
+	;first numbers are 0 and 1
+	sub a,a
+	sub b,b
+	lli b,1
+
+	;initialize counter
+	lui d,f
+	lli d,e
+	load c,[d]
+	; negate counter
+	sub d,d
+	sub d,c
+	sub c,c
+	add c,d
+
+#fibloop
+	;compute d = num[0]+num[1]
+	sub d,d
+	add d,a
+	add d,b
+	;shift a=b, b=d
+	sub a,a
+	add a,b
+	sub b,b
+	add b,d
+
+	;save to output
+	lui d,f
+	lli d,f
+	store b,[d]
+
+	;count down
+	lui d,0
+	lli d,1
+	add c,d
+
+	;done yet? if not goto loop
+	lui d,#fibloop
+	lli d,#fibloop
+	jlez c,[d]
+
+#done
+	lui d,#done
+	lli d,#done
+	jalr d,d

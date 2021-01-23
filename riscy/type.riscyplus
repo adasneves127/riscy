@@ -1,0 +1,199 @@
+; set up the display
+	li	d,0x82
+	out	d
+	li	d,0x82
+	out	d
+	li	d,0x8c
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x8f
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x81
+	out	d
+
+; initialize stack pointer to 0 at page 0x80
+	li	d,0x80
+	page	d
+	sub	d,d
+	store	d,[d]
+
+; set the data space to 200
+	li	a,0x2
+
+; use b as our index
+	sliu	b,#msg
+	slil	b,#msg
+
+; call print string function at 100
+	li	c,1
+	li	d,0
+	jmpfar	c,d
+
+; read a character from input
+	li	a,0xff
+	page	a
+#inloop
+	li	d,#inloop
+	in	a
+	skipnz	a
+	jalr	d,d
+
+; put it in memory
+	li	d,0
+	store	a,[d]
+	inc	d
+	sub	a,a
+	store	a,[d]
+
+; print it: page ff, string at 0, function at 01:00
+	li	a,0xff
+	li	b,0
+	li	c,1
+	li	d,0
+	jmpfar	c,d
+
+; repeat forever
+	li	d,#inloop
+	jalr	d,d
+
+#done
+	halt
+
+; printstring takes a page in a, a string address in b and return address in c
+;; a and d are altered, b is incremented through string
+; d is altered
+
+	org 100
+; save c and b on stack
+	li	d,0x80
+	page	d
+; get stack pointer from 0x80:0
+	sub	d,d
+	load	d,[d]
+; backup c, b, a
+	dec	d
+	store	c,[d]
+	dec	d
+	store	b,[d]
+	dec	d
+	store	a,[d]
+; save stack pointer
+	sub	c,c
+	store	d,[c]
+; set page to data
+	page	a
+
+#printloop
+; load a character
+	load	a,[b]
+
+; if it's a zero, skip to end
+	li	d,#printloop_doneprint
+	skipnz	a
+	jalr	d,d
+
+; shift it right by 4 using division
+
+; get rid of lower four bits
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+; c is quotient
+	sub	c,c
+#printloop_divloop
+; if a is 0, done with division
+	li	d,#printloop_divdone
+	skipnz	a
+	jalr	d,d
+; do subtraction
+	li	d,0x10
+	sub	a,d
+	inc	c
+; jump back to loop
+	li	d,#printloop_divloop
+	jalr	d,d
+#printloop_divdone			
+; send it out
+	out	c
+
+; do it for second part
+	load	a,[b]
+	li	d,0x0f
+	nand	a,d
+	nand	a,a
+; sent it out
+	out	a
+; move b to next character
+	inc	b
+
+; repeat
+	li	d,#printloop
+	jalr	d,d 
+
+#printloop_doneprint
+; retrieve c,b,a from stack
+	li	d,0x80
+	page	d	
+; get stack pointer from 0x80:0
+	sub	d,d
+	load	d,[d]
+; pop a, b, c
+	load	a,[d]
+	inc	d
+	load	b,[d]
+	inc	d
+	load	c,[d]
+	inc	d
+; save stack pointer
+	sub	c,c
+	store	d,[c]
+; recover c from stack
+	dec	d
+	load	c,[d]
+; set page back to data
+	page	a
+
+;get the return address from c
+	sub	d,d
+	add	d,c
+;going back to page 0
+	li	c,0
+	jmpfar	c,d
+
+	org	200
+#msg
+
+	db	0x54
+	db	0x79
+	db	0x70
+	db	0x65
+	db	0x3a
+	db	0x20
+	db	0
+
+;	db	0x4
+;	db	0x8
+;	db	0x6
+;	db	0x9
+;	db	0x2
+;	db	0x0
+;	db	0x5
+;	db	0x3
+;	db	0x7
+;	db	0x7
+;	db	0x6
+;	db	0x5
+;	db	0x6
+;	db	0x5
+;	db	0x7
+;	db	0x4
+;	db	0x6
+;	db	0x9
+;	db	0x6
+;	db	0x5
+;	db	0x2
+;	db	0x1
+;	db	0

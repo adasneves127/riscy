@@ -1,0 +1,12 @@
+"Id";"Designator";"Package";"Quantity";"Designation";"Supplier and ref";
+1;"U16";"DIP-16_W7.62mm";1;"74LS139";;;
+2;"U15";"DIP-20_W7.62mm";1;"74LS245";;;
+3;"U14,U13,U12,U11,U10,U9,U8,U7";"DIP-16_W7.62mm";8;"74LS253";;;
+4;"U6,U5,U4,U3,U2,U1";"DIP-20_W7.62mm";6;"74LS377";;;
+5;"RN6,RN5,RN4,RN3,RN2,RN1";"R_Array_SIP9";6;"R_Network08";;;
+6;"R3,R2,R1";"R_Axial_DIN0204_L3.6mm_D1.6mm_P2.54mm_Vertical";3;"R";;;
+7;"J10,J1";"PinHeader_1x03_P2.54mm_Vertical";2;"Conn_01x03_Female";;;
+8;"J9";"PinHeader_1x04_P2.54mm_Vertical";1;"Conn_01x04_Female";;;
+9;"J8,J7,J6,J5,J4,J3,J2";"PinHeader_1x08_P2.54mm_Vertical";7;"Conn_01x08_Female";;;
+10;"D51,D50,D49,D48,D47,D46,D45,D44,D43,D42,D41,D40,D39,D38,D37,D36,D35,D34,D33,D32,D31,D30,D29,D28,D27,D26,D25,D24,D23,D22,D21,D20,D19,D18,D17,D16,D15,D14,D13,D12,D11,D10,D9,D8,D7,D6,D5,D4,D3,D2,D1";"LED_D5.0mm";51;"LED";;;
+11;"C16,C15,C14,C13,C12,C11,C10,C9,C8,C7,C6,C5,C4,C3,C2,C1";"C_Disc_D3.0mm_W2.0mm_P2.50mm";16;"C";;;

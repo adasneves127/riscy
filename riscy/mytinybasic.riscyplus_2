@@ -1,0 +1,2025 @@
+	org	0
+	li	d,0xff
+	stackpage	d
+
+
+; set up the display
+	li	d,0x82
+	out	d
+	li	d,0x82
+	out	d
+	li	d,0x8c
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x8f
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x81
+	out	d
+
+	; print out "Monitor"
+	li	a,0x7f
+	li	b,#monitor_message
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#printstring
+	jmpfar	d,d
+
+	li	c,7
+	li	d,#monitor
+	jmpfar	d,d
+
+
+; copy the prompt to ram at 0xf0:0x20
+	li	c,0
+	push	c
+	li	c,0x20
+	push	c
+	li	c,0xf0
+	push	c
+	li	c,#msg
+	push	c
+	li	c,0x7f
+	push	c
+	li	c,1
+	li	d,#copystring
+	jmpfar	d,d
+
+; print out a prompt
+	li	a,0xf0
+	li	b,0x20
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#printstring
+	jmpfar	d,d
+
+; set up for read
+	li	c,0
+	push	c
+	li	c,5
+	li	d,#readprompt
+	jmpfar	d,d
+
+; read a string into 0xfd:0
+	li	a,0xfd
+	li	b,0
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#readstring
+	jmpfar	d,d
+
+; clear screen
+	li	c,0
+	push	c
+	li	c,5
+	li	d,#clearscreen
+	jmpfar	d,d
+
+; parse the string.  echo back each token number until EOL
+	;start at beginning of input
+	li	b,0
+#parseloop
+	;push start addr
+	push	b
+	; get a token
+	li	a,0xfd
+	li	c,0
+	push	c
+	li	c,2
+	li	d,#token_match
+	jmpfar	d,d
+
+	;stop if hit EOL
+	li	c,5
+	sub	a,c
+	li	d,#parsedone
+	skipnz	a
+	jalr	d,d
+	add	a,c
+
+	;retrieve start addr in c
+	pop	c
+	push	a
+	li	a,0xfd
+	page	a
+	; get beginning addr in a
+	sub	a,a
+	add	a,c
+	; copy token to fc:0
+	li	c,0
+	push	c
+	li	c,4
+	li	d,#copy_token
+	jmpfar	d,d
+
+	;print a "token: " message
+	push	b
+	li	a,0x7f
+	li	b,#tokenmessage
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#printstring
+	jmpfar	d,d
+	pop	b
+
+	;print the token
+	push	b
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#printstring
+	li	a,0xfc
+	li	b,0
+	jmpfar	d,d
+	pop	b
+
+	li	d,#parseloop
+	jalr	d,d
+#parsedone
+	pop	d
+
+; echo the string back
+;	li	a,0xfd
+;	page	a
+;	li	b,0
+;	li	c,0
+;	push	c
+;	li	c,1
+;	li	d,#printstring
+;	jmpfar	d,d
+
+	halt
+
+
+	org	100
+
+;
+;100-------------------------PRINTSTRING--------------------
+;
+; printstring takes a page:address of a string in a:b
+; return addr in d, return page on stack
+
+#printstring
+	push	d
+	push	b
+	push	a
+
+; set page to data
+	page	a
+
+#printstring_loop
+	load	a,[b]
+
+; if zero, skip to end
+	li	d,#printstring_done
+	skipnz	a
+	jalr	d,d
+
+; call print char
+	li	c,1
+	push	c
+	li	d,#printchar
+	jalr	d,d
+
+; move to next char and repeat
+	inc	b
+	li	d,#printstring_loop
+	jalr	d,d
+
+#printstring_done
+	pop	a
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;100-------------------------PRINTCHAR--------------------
+;
+
+; printchar takes a char in a
+; return addr in d, return page on stack
+
+#printchar
+	push	a
+	push	b
+	push	d
+
+; backup char
+	push	a
+; get rid of lower four bits
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+
+; c is quotient
+	sub	c,c
+#printchar_divloop
+; if a is 0, done with division
+	li	d,#printchar_divdone
+	skipnz	a
+	jalr	d,d
+; do subtraction
+	li	d,0x10
+	sub	a,d
+	inc	c
+; repeat loop
+	li	d,#printchar_divloop
+	jalr	d,d
+
+#printchar_divdone
+; send it out
+	out	c
+
+; second part
+; retrieve char
+	pop	a
+	li	d,0x0f
+	nand	a,d
+	nand	a,a
+; send it out
+	out	a
+
+	pop	d
+	pop	b
+	pop	a
+	pop	c
+	jmpfar	d,d
+
+;
+;100-------------------------READCHAR--------------------
+;
+
+; readchar returns a char in a
+; return addr in d, return page on stack
+#readchar
+	push	d
+#inloop
+	li	d,#inloop
+	in	a
+	skipnz	a
+	jalr	d,d
+
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;-------------------------READSTRING--------------------
+;
+; readstring takes a buffer page:addr in a:b
+; reads a string until RETURN; puts it in buffer and null terminates it
+; return addr in d, return page on stack
+
+#readstring
+	push	a
+	push	b
+	push	d
+
+	page	a
+
+#readstring_readloop
+; read a character
+	li	c,1
+	push	c
+	li	d,#readchar
+	jmpfar	d,d
+
+; char is in a.  check if RETURN
+	li	c,0xd
+	sub	a,c
+	li	d,#readstring_return
+	skipnz	a
+	jalr	d,d
+	add	a,c
+
+; check if BACKSPACE
+	li	c,0x8
+	sub	a,c
+	li	d,#readstring_backspace
+	skipnz	a
+	jalr	d,d
+	add	a,c
+
+; print the character
+	li	c,1
+	push	c
+	li	d,#printchar
+	jalr	d,d
+
+; save it to the buffer
+	store	a,[b]
+	inc	b
+
+; repeat
+	li	d,#readstring_readloop
+	jalr	d,d
+
+#readstring_backspace
+; if b is 0, ignore
+	li	d,#readstring_readloop
+	skipnz	b
+	jalr	d,d
+
+; decrement index
+	dec	b
+
+; TODO: delete char and shift cursor left
+	li	d,0x80
+	out	d
+	li	d,0x84
+	out	d
+	li	d,0x2
+	out	d
+	li	d,0x0
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x86
+	out	d
+;	li	d,0x2
+;	out	d
+;	li	d,0x0
+;	out	d
+
+
+	li	d,#readstring_readloop
+	jalr	d,d
+
+#readstring_return
+	; home cursor
+	li	d,0x80
+	out	d
+	li	d,0x83
+	out	d
+
+; null terminate
+	li	a,0
+	store	a,[b]
+
+	pop	d
+	pop	b
+	pop	a
+	pop	c
+	jmpfar	d,d
+
+;
+;100-------------------------COPYSTRING--------------------
+;
+
+
+; copystring takes on the stack: 1. ret page, 2.dest addr, 3.dest page, 4.src addr, 5.src page; d is ret addr
+; copies from src to dest until null terminator
+; uses 0xfe:0-6 as temp storage
+#copystring
+	; backup regs into fe:0,1,2
+	li	c,0xfe
+	page	c
+	li	c,0
+	store	a,[c]
+	inc	c
+	store	b,[c]
+	inc	c
+	store	d,[c]
+	inc	c
+
+	; get params into fe:3(srcpage),4(srcaddr),5(destpage),6(destaddr)
+	pop	d
+	store	d,[c]
+	inc	c
+	pop	d
+	store	d,[c]
+	inc	c
+	pop	d
+	store	d,[c]
+	inc	c
+	pop	d
+	store	d,[c]
+
+	; get source addr in b, set source page
+	li	c,4
+	load	b,[c]
+	dec	c
+	load	c,[c]
+	page	c
+
+	; a keeps track of number of bytes pushed, b is the address
+	sub	a,a
+#copystring_pushloop
+	; read a char and push it
+	load	c,[b]
+	push	c
+	inc	a
+	inc	b
+	; if the char is not 0, keep going
+	li	d,#copystring_pushloop
+	skipz	c
+	jalr	d,d
+
+	; now get the dest page and addr
+	li	c,0xfe
+	page	c
+	li	c,6
+	load	b,[c]
+	dec	c
+	load	c,[c]
+	page	c
+
+	; go to the end
+	add	b,a
+#copystring_poploop
+	; pop a char and store it
+	dec	b
+	dec	a
+	pop	c
+	store	c,[b]
+	; done if a is 0
+	li	d,#copystring_poploop
+	skipz	a
+	jalr	d,d
+
+	; restore regs and return
+	li	c,0xfe
+	page	c
+	li	c,0
+	load	a,[c]
+	inc	c
+	load	b,[c]
+	inc	c
+	load	d,[c]
+	pop	c
+	jmpfar	d,d
+
+
+	org	200
+
+;
+;200-------------------------TOKENMATCH--------------------
+;
+
+;token_match
+;a:b is page:addr of input; d=return addr
+;returns: a=token type (0==no match), b=addr of end of token
+
+#token_match
+	push	d
+	push	b
+
+	page	a
+
+	;check for string
+	load	c,[b]
+	;look for "
+	li	d,0x22
+	sub	c,d
+	li	d,#token_match_notstring
+	skipz	c
+	jalr	d,d
+	; it is a string!
+	; step ahead until end of string or 0
+#token_match_stringloop
+	inc	b
+	load	c,[b]
+	li	d,#token_match_endofstring_0
+	skipnz	c
+	jalr	d,d
+	li	d,0x22
+	sub	c,d
+	li	d,#token_match_endofstring_1
+	skipnz	c
+	jalr	d,d
+	li	d,#token_match_stringloop
+	jalr	d,d
+#token_match_endofstring_0
+	li	a,1
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+#token_match_endofstring_1
+	;move past "
+	inc	b
+	li	a,1
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+
+#token_match_notstring
+
+	;check if it's a number
+
+	load	c,[b]
+	li	d,0x30
+	sub	c,d
+	li	d,#token_match_notanumber
+	skipge	c
+	jalr	d,d
+	load	c,[b]
+	li	d,0x3a
+	sub	c,d
+	li	d,#token_match_notanumber
+	skipl	c
+	jalr	d,d
+
+	; it's a number.  now move forwards
+#token_match_numberloop
+	inc	b
+	; check if it's a digit from 0 to 9
+	load	c,[b]
+	li	d,0x30
+	sub	c,d
+	li	d,#token_match_numberloopdone
+	skipge	c
+	jalr	d,d
+	load	c,[b]
+	li	d,0x3a
+	sub	c,d
+	li	d,#token_match_numberloopdone
+	skipl	c
+	jalr	d,d
+	li	d,#token_match_numberloop
+	jalr	d,d
+#token_match_numberloopdone
+	li	a,2
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+
+#token_match_notanumber
+
+	;check for end-of-line: 0
+	load	c,[b]
+	li	d,#token_match_noteol
+	skipz	c
+	jalr	d,d
+	inc	b
+	li	a,5
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+
+#token_match_noteol
+
+	;check for < > = #
+
+	; <
+	load	c,[b]
+	li	d,0x3c
+	sub	c,d
+	li	d,#token_match_relop
+	skipnz	c
+	jalr	d,d
+	; >
+	load	c,[b]
+	li	d,0x3e
+	sub	c,d
+	li	d,#token_match_relop
+	skipnz	c
+	jalr	d,d
+	; =
+	load	c,[b]
+	li	d,0x3d
+	sub	c,d
+	li	d,#token_match_relop
+	skipnz	c
+	jalr	d,d
+	; #
+	load	c,[b]
+	li	d,0x23
+	sub	c,d
+	li	d,#token_match_relop
+	skipnz	c
+	jalr	d,d
+	li	d,#token_match_notarelop
+	jalr	d,d
+
+#token_match_relop
+	inc	b
+	li	a,3
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+
+#token_match_notarelop
+
+	;check for + - * / ( ) , ;
+
+	load	c,[b]
+	; +
+	li	d,0x2b
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; -
+	load	c,[b]
+	li	d,0x2d
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; *
+	load	c,[b]
+	li	d,0x2a
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; /
+	load	c,[b]
+	li	d,0x2f
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; (
+	load	c,[b]
+	li	d,0x28
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; )
+	load	c,[b]
+	li	d,0x29
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; ,
+	load	c,[b]
+	li	d,0x2c
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	; ;
+	load	c,[b]
+	li	d,0x3b
+	sub	c,d
+	li	d,#token_match_op
+	skipnz	c
+	jalr	d,d
+	li	d,#token_match_notop
+	jalr	d,d
+
+#token_match_op
+	inc	b
+	li	a,6
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+
+#token_match_notop
+
+	; check if it's a whitespace
+
+	load	c,[b]
+	li	d,0x20
+	sub	c,d
+	li	d,#token_match_notspace
+	skipz	c
+	jalr	d,d
+	; it is, so keep reading spaces
+#token_match_spaceloop
+	inc	b
+	load	c,[b]
+	li	d,0x20
+	sub	c,d
+	li	d,#token_match_spaceloop
+	skipnz	c
+	jalr	d,d
+	li	a,7
+	pop	d
+	li	d,#token_match_done
+	jalr	d,d
+
+#token_match_notspace
+
+	; jump to next page
+	li	c,3
+	li	d,#token_match_page2
+	jmpfar	d,d
+
+#token_match_done
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+
+	org	300
+
+#token_match_page2
+	;check for keyword
+
+	;backup page
+	push	a
+	push	b
+
+	li	c,3
+	push	c
+	li	c,4
+	li	d,#keyword_match
+	jmpfar	d,d
+
+	; if a is ff, just return
+	li	d,#token_match_notakeyword
+	skipge	a
+	jalr	d,d
+	; get address of end of token into b
+	pop	c
+	pop	d
+	add	b,c
+	; add number of tokens to keyword number
+	li	d,8
+	add	a,d
+	pop	d
+	li	d,#token_match_done_page2
+	jalr	d,d
+
+#token_match_notakeyword
+	;restore page
+	pop	b
+	pop	a
+	page	a
+	;restore b
+;	pop	b
+;	push	b
+	;check if it's a variable name: a sequence of letters
+	load	c,[b]
+	li	d,0x41
+	sub	c,d
+	li	d,#token_match_notavar
+	skipge	c
+	jalr	d,d
+	load	c,[b]
+	li	d,0x5b
+	sub	c,d
+	li	d,#token_match_notavar
+	skipl	c
+	jalr	d,d
+
+	; it's a var name.  now move forwards
+#token_match_varloop
+	inc	b
+	; check if it's a letter from A to Z
+	load	c,[b]
+	li	d,0x41
+	sub	c,d
+	li	d,#token_match_varloopdone
+	skipge	c
+	jalr	d,d
+	load	c,[b]
+	li	d,0x5b
+	sub	c,d
+	li	d,#token_match_varloopdone
+	skipl	c
+	jalr	d,d
+	li	d,#token_match_varloop
+	jalr	d,d
+#token_match_varloopdone
+	li	a,4
+	pop	d
+	li	d,#token_match_done_page2
+	jalr	d,d
+
+#token_match_notavar
+	li	a,0
+	pop	b
+#token_match_done_page2
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+	org	400
+
+;
+;400-------------------------COPYTOKEN--------------------
+;
+
+
+;copy token
+;current page is token's page, a is initial addr, b is end addr, d is ret addr
+;token is moved to fc:0 and null terminated
+
+#copy_token
+	push	d
+	push	b
+	push	a
+
+	;push a null terminator
+	sub	c,c
+	push	c
+
+	;push from token to stack starting from end
+#copy_token_pushloop
+	dec	b
+	load	c,[b]
+	push	c
+	;stop when a==b
+	sub	a,b
+	li	d,#copy_token_pushdone
+	skipnz	a
+	jalr	d,d
+	add	a,b
+	li	d,#copy_token_pushloop
+	jalr	d,d
+#copy_token_pushdone
+	;move to fc:0
+	li	c,0xfc
+	page	c
+	sub	b,b
+
+	;read from stack until hit null terminator
+#copy_token_poploop
+	pop	c
+	store	c,[b]
+	inc	b
+	li	d,#copy_token_poploop
+	skipz	c
+	jalr	d,d
+
+	pop	a
+	pop	b
+	pop	d
+	pop	c
+
+	jmpfar	d,d
+
+;
+;400-------------------------KEYWORD_MATCH--------------------
+;
+
+;keyword_match
+;a:b is page:addr of a test word; d=return addr
+;returns: a=keyword index (-1==no match), b=keyword length
+;uses memory fe:0-11
+
+#keyword_match
+	push	d
+
+	;copy 8 bytes of test word into memory fe:0-7
+
+	page	a
+	li	c,8
+#keyword_match_copy
+	load	a,[b]
+	push	a
+	inc	b
+	dec	c
+	li	d,#keyword_match_copy
+	skipz	c
+	jalr	d,d
+
+	li	a,0xfe
+	page	a
+	li	b,7
+#keyword_match_copy_2
+	pop	a
+	store	a,[b]
+	dec	b
+	li	d,#keyword_match_copy_2
+	skipl	b
+	jalr	d,d
+
+	;fe:10 will hold the keyword number - initially 0
+	;fe:11 the keyword address - initially keywords+1
+
+	li	b,0x10
+	sub	a,a
+	store	a,[b]
+	li	a,#keywords
+	inc	a
+	inc	b
+	store	a,[b]
+
+	;retrieve the current keyword and copy it into fe:8-f
+
+#keyword_match_testloop
+
+	;get address of current keyword
+	li	b,0x11
+	load	b,[b]
+	;keyword page
+	li	a,0x7e
+	page	a
+	;copy 8 letters to stack
+	li	c,8
+#keyword_match_retrieve_1
+	load	a,[b]
+	push	a
+	inc	b
+	dec	c
+	li	d,#keyword_match_retrieve_1
+	skipz	c
+	jalr	d,d
+	;copy 8 letters from stack to fe:8-f
+	li	b,0xf
+	li	c,8
+	li	a,0xfe
+	page	a
+#keyword_match_retrieve_2
+	pop	a
+	store	a,[b]
+	dec	b
+	dec	c
+	li	d,#keyword_match_retrieve_2
+	skipz	c
+	jalr	d,d
+
+	; now go through and see if they match
+
+	li	b,0
+#keyword_match_compareloop
+	; get letter from test
+	load	a,[b]
+	li	d,8
+	add	b,d
+	; get letter from keyword
+	load	c,[b]
+	sub	b,d
+	; if keyword letter is 0, then positive match
+	li	d,#keyword_match_positive
+	skipnz	c
+	jalr	d,d
+	; if the letters don't equal, then negative
+	sub	a,c
+	li	d,#keyword_match_negative
+	skipz	a
+	jalr	d,d
+	; move to next letter
+	inc	b
+	li	d,#keyword_match_compareloop
+	jalr	d,d
+
+	; we found a keyword match!
+#keyword_match_positive
+	; b holds the length
+	; get keyword number in a
+	li	c,0x10
+	load	a,[c]
+
+	; return
+	li	d,#keyword_match_done
+	jalr	d,d
+
+#keyword_match_negative
+	; move to the next keyword
+	li	b,0x10
+	load	a,[b]
+	inc	a
+	store	a,[b]
+	inc	b
+	load	a,[b]
+	li	c,8
+	add	a,c
+	store	a,[b]
+
+	; are we done with all the keywords?
+	li	c,0x7e
+	page	c
+	li	c,#keywords
+	load	d,[c]
+	li	c,0xfe
+	page	c
+	li	b,0x10
+	load	a,[b]
+	sub	a,d
+	li	d,#keyword_match_testloop
+	skipz	a
+	jalr	d,d
+
+	; couldn't find any keyword match
+	; return a=-1
+	li	a,0xff
+
+#keyword_match_done
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+
+	org	500
+
+;
+;500-------------------------CLEARSCREEN--------------------
+;
+
+;clearscreen resets screen and homes cursor in preparation for a print
+; d=return address
+
+#clearscreen
+	push	d
+
+	; home cursor
+	li	d,0x80
+	out	d
+	li	d,0x83
+	out	d
+	; clear display
+	li	d,0x80
+	out	d	
+	li	d,0x81
+	out	d	
+
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+
+;
+;500-------------------------READPROMPT--------------------
+;
+
+;readprompt clears the second line, puts the cursor at its beginning, prints a prompt
+;
+
+#readprompt
+	push	d
+
+	;put cursor on second line : 0
+	li	d,0x8c
+	out	d
+	li	d,0x80
+	out	d
+
+	;print out 16 spaces to clear line
+	li	c,16
+#readpromptclr
+	li	d,0x2
+	out	d
+	li	d,0x0
+	out	d
+	dec	c
+	li	d,#readpromptclr
+	skipz	c
+	jalr	d,d
+
+	;put cursor on second line : 0
+	li	d,0x8c
+	out	d
+	li	d,0x80
+	out	d
+
+	;print a > prompt
+	li	d,0x3
+	out	d
+	li	d,0xe
+	out	d
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;500-------------------------MULTIPLY--------------------
+;
+;input: a and b hold numbers to multiply.  d is return addr
+;output: a is product
+;
+#multiply
+	push	d
+	push	b
+
+	li	c,0
+
+#multiply_loop
+	li	d,#multiply_done
+	skipnz	a
+	jalr	d,d
+	add	c,b
+	dec	a
+	li	d,#multiply_loop
+	jalr	d,d
+
+#multiply_done
+	sub	a,a
+	add	a,c
+
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;500-------------------------DIVIDE--------------------
+;
+;input: a and b hold numbers to divide.  d is return addr
+;output: a is quotient, b is remainder
+;
+#divide
+	push	d
+
+	;special case: b==0
+	li	d,#divide_case0
+	skipnz	b
+	jalr	d,d
+
+	;q=0
+	li	c,0
+#divide_loop
+	; while a>=0
+	li	d,#divide_done
+	skipge	a
+	jalr	d,d
+
+	;a=a-b
+	sub	a,b
+	;c=c+1
+	inc	c
+	li	d,#divide_loop
+	jalr	d,d
+
+#divide_done
+	dec	c
+	add	a,b
+
+	;put remainder into b
+	sub	b,b
+	add	b,a
+	;put quotient into a
+	sub	a,a
+	add	a,c
+
+#divide_return
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+#divide_case0
+	;divide by zero produces a=ff, b=ff
+	li	a,0xff
+	li	b,0xff
+	li	d,#divide_return
+	jalr	d,d
+
+;
+;500-------------------------SHIFTRIGHT--------------------
+;
+;input: a holds input.  d is return addr
+;output: a is input>>1
+;
+#shiftright
+	push	d
+	push	b
+
+	; mask the rightmost bit to 0
+	li	b,0xfe
+	nand	a,b
+	nand	a,a
+
+	li	c,0
+#shiftright_loop
+	li	d,#shiftright_done
+	skipnz	a
+	jalr	d,d
+
+	;a=a-2
+	dec	a
+	dec	a
+
+	;c=c+1
+	inc	c
+	li	d,#shiftright_loop
+	jalr	d,d
+
+#shiftright_done
+	;put quotient into a
+	sub	a,a
+	add	a,c
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;500-------------------------BINTODEC--------------------
+;
+;convert a bin number in a into a null terminated decimal number string located at fc:0
+;
+#bintodec
+	push	d
+	push	b
+
+	;push a null terminator
+	li	c,0
+	push	c
+
+	li	d,#bintodec_zerocase
+	skipnz	a
+	jalr	d,d
+
+#bintodec_pushloop
+	;if a is zero, done
+	li	d,#bintodec_pushdone
+	skipnz	a
+	jalr	d,d
+
+	;divide a by 10
+	push	b
+	li	b,10
+	li	c,5
+	push	c
+	li	d,#divide
+	jmpfar	d,d
+
+	;put remainder in c and convert to dec
+	sub	c,c
+	add	c,b
+	li	b,0x30
+	add	c,b
+	;push remainder
+	pop	b
+	push	c
+	li	d,#bintodec_pushloop
+	jalr	d,d
+
+#bintodec_zerocase
+	li	a,0x30
+	push	a
+
+#bintodec_pushdone
+	;set b to fc:0
+	li	b,0xfc
+	page	b
+	li	b,0
+#bintodec_poploop
+	;pop from stack, put in memory until 0
+	pop	a
+	store	a,[b]
+	inc	b
+
+	li	d,#bintodec_poploop
+	skipz	a
+	jalr	d,d
+
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;500-------------------------DECTOBIN--------------------
+;
+;convert a null terminated decimal number located at fc:0 to a bin number in a
+;
+#dectobin
+	push	d
+	push	b
+
+	li	d,0xfc
+	page	d
+
+	;b=0, a=0
+	sub	b,b
+	sub	a,a
+
+#dectobin_loop
+	;while s[b]!=0
+	load	c,[b]
+	li	d,#dectobin_done
+	skipnz	c
+	jalr	d,d
+
+	;a=a*10
+	push	b
+	li	b,10
+	li	c,5
+	push	c
+	li	d,#multiply
+	jmpfar	d,d
+	pop	b
+
+	;a=a+(s[b]-'0')
+	load	c,[b]
+	li	d,0x30
+	sub	c,d
+	add	a,c
+
+	;b++
+	inc	b
+	li	d,#dectobin_loop
+	jalr	d,d
+
+#dectobin_done
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+	org	600
+
+;600-------------------------SHIFTRIGHT4--------------------
+;
+;input: a holds input.  d is return addr
+;output: a is input>>4
+;
+#shiftright4
+	push	d
+	push	b
+
+	; mask the rightmost bits to 0
+	li	b,0xf0
+	nand	a,b
+	nand	a,a
+
+	li	c,0
+#shiftright4_loop
+	li	d,#shiftright4_done
+	skipnz	a
+	jalr	d,d
+
+	;a=a-16
+	li	d,16
+	sub	a,d
+
+	;c=c+1
+	inc	c
+	li	d,#shiftright4_loop
+	jalr	d,d
+
+#shiftright4_done
+	;put quotient into a
+	sub	a,a
+	add	a,c
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;600-------------------------HEXTOBIN--------------------
+;
+;convert a two digit hex string located at fc:0 to a binary number in a
+;
+#hextobin
+	push	d
+	push	b
+
+	li	b,0xfc
+	page	b
+	li	b,0
+	load	a,[b]
+	li	d,#hextobin_deasciify
+	jalr	d,d
+	add	a,a
+	add	a,a
+	add	a,a
+	add	a,a
+	push	a
+
+	li	b,1
+	load	a,[b]
+	li	d,#hextobin_deasciify
+	jalr	d,d
+	pop	b
+	add	a,b
+
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+#hextobin_deasciify
+	li	c,0x3a
+	sub	a,c
+	li	c,#hextobin_deasciify09
+	skipge	a
+	jalr	c,c
+	li	c,7
+	sub	a,c
+#hextobin_deasciify09
+	li	c,10
+	add	a,c
+	jalr	d,d
+
+;
+;600-------------------------BINTOHEX--------------------
+;
+;convert a bin number in a into a null terminated two digit string located at fc:0
+;
+#bintohex
+	push	d
+	push	b
+	push	a
+
+	li	c,0xfc
+	page	c
+
+	push	a
+
+	;shift to eliminate low digits
+	li	c,6
+	push	c
+	li	d,#shiftright4
+	jmpfar	d,d
+
+	li	d,#bintohex_asciify
+	jalr	d,d
+	li	b,0
+	store	a,[b]
+
+	pop	a
+
+	;mask out top four digits
+	li	d,0xf
+	nand	a,d
+	nand	a,a
+
+	li	d,#bintohex_asciify
+	jalr	d,d
+	li	b,1
+	store	a,[b]
+
+	inc	b
+	li	a,0
+	store	a,[b]
+
+	pop	a
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+#bintohex_asciify
+	li	c,0xa
+	sub	a,c
+	li	c,#bintohex_asciify09
+	skipge	a
+	jalr	c,c
+	li	c,7
+	add	a,c
+#bintohex_asciify09
+	li	c,0x3a
+	add	a,c
+	jalr	d,d
+
+
+	org	700
+;
+;700-------------------------MONITOR--------------------
+;
+;monitor program
+;
+;commands are D, E, G
+;    D 0123	dumps 4 bytes at page 01, address 23-26
+;    E 0123 45	sets byte at address 01:23 to 45
+;    G 0123	jumps to 01:23
+;
+#monitor
+	; print > prompt
+	li	c,7
+	push	c
+	li	c,5
+	li	d,#readprompt
+	jmpfar	d,d
+
+	; read a line into 0xfd:0
+	li	a,0xfd
+	li	b,0
+	li	c,7
+	push	c
+	li	c,1
+	li	d,#readstring
+	jmpfar	d,d
+
+	; clear screen
+	li	c,7
+	push	c
+	li	c,5
+	li	d,#clearscreen
+	jmpfar	d,d
+
+	; get command
+	li	a,0xfd
+	page	a
+	li	b,0
+	load	a,[b]
+
+	; check command:
+	; dump
+	li	b,0x44
+	sub	a,b
+	li	d,#monitor_dump
+	li	c,8
+	skipnz	a
+	jmpfar	d,d
+	add	a,b
+
+	; edit
+	li	b,0x45
+	sub	a,b
+	li	d,#monitor_edit
+	skipnz	a
+	jalr	d,d
+	add	a,b
+
+	; go
+	li	b,0x47
+	sub	a,b
+	li	d,#monitor_go
+	skipnz	a
+	jalr	d,d
+
+	;invalid command
+	li	d,#monitor
+	jalr	d,d
+
+#monitor_go
+	; get the page:address
+	li	c,7
+	push	c
+	li	c,8
+	li	d,#monitor_getaddress
+	jmpfar	d,d
+
+	; jump to it
+	sub	c,c
+	add	c,a
+	sub	d,d
+	add	d,b
+	jmpfar	d,d
+
+#monitor_edit
+	; get the byte into fc:0
+	li	b,8
+	li	a,0xfd
+	page	a
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+	li	a,0xfc
+	page	a
+	li	b,0
+	pop	a
+	store	a,[b]
+	inc	b
+	pop	a
+	store	a,[b]
+
+	;convert it and push it
+	li	c,7
+	push	c
+	li	c,6
+	li	d,#hextobin
+	jmpfar	d,d
+
+	push	a
+
+	; get the page:address
+	li	c,7
+	push	c
+	li	c,8
+	li	d,#monitor_getaddress
+	jmpfar	d,d
+
+	;save the byte to that address
+	page	a
+	pop	a
+	store	a,[b]
+
+	li	c,7
+	li	d,#monitor
+	jmpfar	d,d	
+
+	org	800
+#monitor_dump
+	;copy the page:address to fc:10
+	li	a,0xfd
+	page	a
+	li	b,5
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+	li	a,0xfc
+	page	a
+	li	b,0x10
+	pop	a
+	store	a,[b]
+	inc	b
+	pop	a
+	store	a,[b]
+	inc	b
+	pop	a
+	store	a,[b]
+	inc	b
+	pop	a
+	store	a,[b]
+
+	;put spaces at fc:14,17,1a,1d
+	li	b,0x14
+	li	a,0x20
+	store	a,[b]
+	li	b,0x17
+	store	a,[b]
+	li	b,0x1a
+	store	a,[b]
+	li	b,0x1d
+	store	a,[b]
+	;and a null terminator at fc:20
+	li	b,0x20
+	li	a,0
+	store	a,[b]
+
+	; get the page:address
+	li	c,8
+	push	c
+	li	c,8
+	li	d,#monitor_getaddress
+	jmpfar	d,d
+
+	; do four reads
+	page	a
+	inc	b
+	inc	b
+	inc	b
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+
+	; convert first byte
+	pop	a
+
+	li	c,8
+	push	c
+	li	c,6
+	li	d,#bintohex
+	jmpfar	d,d
+
+
+	; move it to the string to print
+	li	b,0
+	load	a,[b]
+	li	b,0x15
+	store	a,[b]
+	li	b,1
+	load	a,[b]
+	li	b,0x16
+	store	a,[b]
+
+	; convert second byte
+	pop	a
+	li	c,8
+	push	c
+	li	c,6
+	li	d,#bintohex
+	jmpfar	d,d
+
+	; move it to the string to print
+	li	b,0
+	load	a,[b]
+	li	b,0x18
+	store	a,[b]
+	li	b,1
+	load	a,[b]
+	li	b,0x19
+	store	a,[b]
+
+	; convert third byte
+	pop	a
+	li	c,8
+	push	c
+	li	c,6
+	li	d,#bintohex
+	jmpfar	d,d
+
+	; move it to the string to print
+	li	b,0
+	load	a,[b]
+	li	b,0x1b
+	store	a,[b]
+	li	b,1
+	load	a,[b]
+	li	b,0x1c
+	store	a,[b]
+
+	; convert fourth byte
+	pop	a
+	li	c,8
+	push	c
+	li	c,6
+	li	d,#bintohex
+	jmpfar	d,d
+
+	; move it to the string to print
+	li	b,0
+	load	a,[b]
+	li	b,0x1e
+	store	a,[b]
+	li	b,1
+	load	a,[b]
+	li	b,0x1f
+	store	a,[b]
+
+	; clear screen and print the string
+	li	c,8
+	push	c
+	li	c,5
+	li	d,#clearscreen
+	jmpfar	d,d
+
+	li	a,0xfc
+	li	b,0x10
+	li	c,8
+	push	c
+	li	c,1
+	li	d,#printstring
+	jmpfar	d,d
+
+	li	c,7
+	li	d,#monitor
+	jmpfar	d,d
+
+
+;returns page in a, addr in b
+#monitor_getaddress
+	push	d
+
+	; copy the page to 0xfc:0
+	li	b,3
+	li	a,0xfd
+	page	a
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+
+	li	a,0xfc
+	page	a
+	li	b,0
+	pop	a
+	store	a,[b]
+	inc	b	
+	pop	a
+	store	a,[b]
+	inc	b
+
+	li	c,8
+	push	c
+	li	c,6
+	li	d,#hextobin
+	jmpfar	d,d
+
+	push	a
+
+	; do the same for the offset
+	li	b,5
+	li	a,0xfd
+	page	a
+	load	a,[b]
+	push	a
+	dec	b
+	load	a,[b]
+	push	a
+
+	li	a,0xfc
+	page	a
+	li	b,0
+	pop	a
+	store	a,[b]
+	inc	b	
+	pop	a
+	store	a,[b]
+	inc	b
+
+	li	c,8
+	push	c
+	li	c,6
+	li	d,#hextobin
+	jmpfar	d,d
+
+	sub	b,b
+	add	b,a
+
+	pop	a
+
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+;
+;-------------------------GLOBAL DATA--------------------
+;
+
+
+;constant data storage goes here
+	org	7e00
+#keywords
+	db	14
+
+	;PRINT
+	db	0x50
+	db	0x52
+	db	0x49
+	db	0x4e
+	db	0x54
+	db	0
+	db	0
+	db	0
+
+	;IF
+	db	0x49
+	db	0x46
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;THEN
+	db	0x54
+	db	0x48
+	db	0x45
+	db	0x4e
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;GOTO
+	db	0x47
+	db	0x4f
+	db	0x54
+	db	0x4f
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;INPUT
+	db	0x49
+	db	0x4e
+	db	0x50
+	db	0x55
+	db	0x54
+	db	0
+	db	0
+	db	0
+
+	;LET
+	db	0x4c
+	db	0x45
+	db	0x54
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;GOSUB
+	db	0x47
+	db	0x4f
+	db	0x53
+	db	0x55
+	db	0x42
+	db	0
+	db	0
+	db	0
+
+	;RETURN
+	db	0x52
+	db	0x45
+	db	0x54
+	db	0x55
+	db	0x52
+	db	0x4e
+	db	0
+	db	0
+
+	;CLEAR
+	db	0x43
+	db	0x4c
+	db	0x45
+	db	0x41
+	db	0x52
+	db	0
+	db	0
+	db	0
+
+	;LIST
+	db	0x4c
+	db	0x49
+	db	0x53
+	db	0x54
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;RUN
+	db	0x52
+	db	0x55
+	db	0x4e
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;END
+	db	0x45
+	db	0x4e
+	db	0x44
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;REM
+	db	0x52
+	db	0x45
+	db	0x4d
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+
+	;PR
+	db	0x50
+	db	0x52
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+	db	0
+
+
+	org	7f00
+#msg
+;        db      0x54
+;        db      0x79
+;        db      0x70
+;        db      0x65
+;        db      0x3a
+;        db      0x20
+
+	db	0x4f
+	db	0x6b
+        db      0
+
+#monitor_message
+	db	0x4d
+	db	0x6f
+	db	0x6e
+	db	0x69
+	db	0x74
+	db	0x6f
+	db	0x72
+	db	0
+
+#tokenmessage
+;	db	0x74
+;	db	0x6f
+;	db	0x6b
+;	db	0x65
+;	db	0x6e
+	db	0x3a
+	db	0x20
+	db	0
+
+#testkey
+	;this should match with PRINT
+	db	0x50
+	db	0x52
+	db	0x49
+	db	0x4e
+	db	0x54
+	db	0x22
+	;this should match with END
+	db	0x45
+	db	0x4e
+	db	0x44
+	db	0xd
+	db	0
+;	db	0x22
+;	db	0x33
+;	db	0x22
+;	db	0x45
+	db	0

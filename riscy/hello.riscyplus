@@ -1,0 +1,94 @@
+; set up the display
+	li	d,0x82
+	out	d
+	li	d,0x82
+	out	d
+	li	d,0x8c
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x8f
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x81
+	out	d
+
+; set the data space to 200
+	li	d,0x2
+	page	d
+
+; use b as our index
+	sliu	b,#msg
+	slil	b,#msg
+
+; call function at 100
+	li	c,1
+	li	d,0
+	jmpfar	c,d
+
+#done
+	halt
+	li	d,#done
+	jalr	d,d
+
+; printloop takes a string address in b
+	org 100
+#printloop
+; load a character
+	load	a,[b]
+
+; if it's a zero, skip to end
+	li	d,#doneprint
+	skipnz	a
+	jalr	d,d
+
+; send it out
+	out	a
+
+; increment index
+	inc	b
+
+; do it for second part
+	load	a,[b]
+	out	a
+	inc	b
+
+; repeat
+	li	d,#printloop
+	jalr	d,d 
+
+#doneprint
+;get the return address from c
+	sub	d,d
+	add	d,c
+;going back to page 0
+	li	c,0
+	jmpfar	c,d
+
+	org	200
+#msg
+
+	db	0x4
+	db	0x8
+	db	0x6
+	db	0x9
+	db	0x2
+	db	0x0
+	db	0x5
+	db	0x3
+	db	0x7
+	db	0x7
+	db	0x6
+	db	0x5
+	db	0x6
+	db	0x5
+	db	0x7
+	db	0x4
+	db	0x6
+	db	0x9
+	db	0x6
+	db	0x5
+	db	0x2
+	db	0x1
+	db	0

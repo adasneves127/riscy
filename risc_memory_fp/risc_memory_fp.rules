@@ -1,0 +1,90 @@
+
+(rules PCB risc_memory_fp
+  (snap_angle 
+    fortyfive_degree
+  )
+  (autoroute_settings
+    (fanout off)
+    (autoroute on)
+    (postroute on)
+    (vias on)
+    (via_costs 50)
+    (plane_via_costs 5)
+    (start_ripup_costs 100)
+    (start_pass_no 1186)
+    (layer_rule F.Cu
+      (active on)
+      (preferred_direction horizontal)
+      (preferred_direction_trace_costs 1.0)
+      (against_preferred_direction_trace_costs 2.7)
+    )
+    (layer_rule B.Cu
+      (active on)
+      (preferred_direction vertical)
+      (preferred_direction_trace_costs 1.0)
+      (against_preferred_direction_trace_costs 1.6)
+    )
+  )
+  (rule
+    (width 250.0)
+    (clear 200.2)
+    (clear 125.0 (type smd_to_turn_gap))
+    (clear 50.0 (type smd_smd))
+  )
+  (padstack "Via[0-1]_800:400_um"
+    (shape
+      (circle F.Cu 800.0 0.0 0.0)
+    )
+    (shape
+      (circle B.Cu 800.0 0.0 0.0)
+    )
+    (attach off)
+  )
+  (via 
+    "Via[0-1]_800:400_um" "Via[0-1]_800:400_um" default
+  )
+  (via 
+    "Via[0-1]_800:400_um-kicad_default" "Via[0-1]_800:400_um" "kicad_default"
+  )
+  (via_rule
+    default "Via[0-1]_800:400_um"
+  )
+  (via_rule
+    "kicad_default" "Via[0-1]_800:400_um-kicad_default"
+  )
+  (class default
+    (clearance_class default)
+    (via_rule default)
+    (rule
+      (width 250.0)
+    )
+    (circuit 
+      (use_layer F.Cu B.Cu)
+    )
+  )
+  (class "kicad_default"
+    GND +5V "Net-(C9-Pad1)" "Net-(C10-Pad1)" "Net-(C11-Pad1)" "Net-(C12-Pad1)" addr0 "Net-(D1-Pad1)"
+    addr1 "Net-(D2-Pad1)" addr2 "Net-(D3-Pad1)" addr3 "Net-(D4-Pad1)" addr4 "Net-(D5-Pad1)"
+    addr5 "Net-(D6-Pad1)" addr6 "Net-(D7-Pad1)" addr7 "Net-(D8-Pad1)" addr8 "Net-(D9-Pad1)"
+    addr9 "Net-(D10-Pad1)" addr10 "Net-(D11-Pad1)" addr11 "Net-(D12-Pad1)" addr12 "Net-(D13-Pad1)"
+    addr13 "Net-(D14-Pad1)" addr14 "Net-(D15-Pad1)" addr15 "Net-(D16-Pad1)" wb0 "Net-(D17-Pad1)"
+    wb1 "Net-(D18-Pad1)" wb2 "Net-(D19-Pad1)" wb3 "Net-(D20-Pad1)" wb4 "Net-(D21-Pad1)"
+    wb5 "Net-(D22-Pad1)" wb6 "Net-(D23-Pad1)" wb7 "Net-(D24-Pad1)" CLK reset
+    fpcontrol memwr memrd "Net-(J7-Pad1)" "Net-(J8-Pad5)" "Net-(J8-Pad3)" "Net-(J8-Pad2)" wr
+    "Net-(JP1-Pad2)" "Net-(R1-Pad1)" "Net-(R2-Pad1)" "Net-(R3-Pad2)" "Net-(R5-Pad2)" "Net-(R6-Pad1)" "Net-(RV1-Pad3)" "Net-(SW1-Pad2)"
+    "Net-(SW2-Pad2)" "Net-(SW3-Pad2)" "Net-(SW4-Pad2)" "Net-(SW5-Pad2)" "Net-(SW6-Pad2)" "Net-(SW7-Pad2)" "Net-(SW8-Pad2)" "Net-(SW9-Pad2)"
+    "Net-(SW10-Pad2)" "Net-(SW11-Pad2)" "Net-(SW12-Pad2)" "Net-(SW13-Pad2)" "Net-(SW14-Pad2)" "Net-(SW15-Pad2)" "Net-(SW16-Pad2)" "Net-(SW17-Pad2)"
+    "Net-(SW18-Pad2)" "Net-(SW19-Pad2)" "Net-(SW20-Pad2)" "Net-(SW21-Pad2)" "Net-(SW22-Pad2)" "Net-(SW23-Pad2)" "Net-(SW24-Pad2)" examine
+    deposit "Net-(SW29-Pad3)" "Net-(SW29-Pad1)" "Net-(SW32-Pad1)" rd "Net-(U2-Pad20)" "Net-(U3-Pad6)" "Net-(U3-Pad12)"
+    switchtowb "Net-(U4-Pad4)" "Net-(U4-Pad2)" "Net-(U4-Pad1)" "Net-(D25-Pad2)" "Net-(D25-Pad1)" "Net-(D26-Pad2)" "Net-(D26-Pad1)"
+    "Net-(D27-Pad1)"
+    (clearance_class "kicad_default")
+    (via_rule kicad_default)
+    (rule
+      (width 250.0)
+    )
+    (circuit 
+      (use_layer F.Cu B.Cu)
+    )
+  )
+)

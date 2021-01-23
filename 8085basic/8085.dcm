@@ -1,0 +1,18 @@
+EESchema-DOCLIB  Version 2.0
+#
+$CMP 2016
+D Static RAM 16Kb (2K x 8)
+K RAM
+$ENDCMP
+#
+$CMP 2716
+D EPROM 16Kb (2K x 8)
+K EPROM
+$ENDCMP
+#
+$CMP 2816
+D EEPROM 16Kb (2K x 8)
+K EEPROM
+$ENDCMP
+#
+#End Doc Library

@@ -1,0 +1,2598 @@
+	org	0
+	li	d,0xff
+	stackpage	d
+
+	.call setupdisplay
+	.call monitor_entry
+
+	halt
+
+	org	100
+.func setupdisplay
+	li	d,0x01
+	out	d
+	li	d,0x80
+	out	d
+;	li	d,0x02
+;	out	d
+;	li	d,0x02
+;	out	d
+;	li	d,0x0c
+;	out	d
+;	li	d,0x00
+;	out	d
+;	li	d,0x0f
+;	out	d
+;	li	d,0x00
+;	out	d
+;	li	d,0x01
+;	out	d
+.endfunc
+
+	org	200
+.func monitor_entry
+	; print out "RISCY Monitor"
+	li	a,0x7f
+	li	b,#monitor_message
+	.call	printstring
+#monitor
+	.call	readprompt
+	; read a line into 0xfd:0
+	li	a,0xfd
+	li	b,0
+	.call	readstring
+
+;	.call clearscreen
+	;get command
+	li	a,0xfd
+	page	a
+	li	b,0
+	load	a,[b]
+
+	;check command
+	.if a == 0x44 then domonitordump
+	.if a == 0x45 then domonitoredit
+	.if a == 0x47 then domonitorgo
+	.if a == 0x42 then domonitorbasic
+
+	.goto monitor
+
+#domonitordump
+	.call monitordump
+	.goto monitor
+#domonitoredit
+	.call monitoredit
+	.goto monitor
+#domonitorbasic
+	.call basic
+	.goto monitor
+#domonitorgo
+	li	b,2
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	pop	b
+	push	a
+	li	d,4
+	add	b,d
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call	hextobin
+	pop	c
+	jmpfar	a,a
+
+.endfunc
+
+	org 300
+.func monitordump
+	.call monitor_printaddress
+	sub	b,b
+	.call monitor_getaddress
+	.move	b,a
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+.endfunc
+
+.func monitoredit
+	; get value byte
+	li	b,7
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	push	a
+	sub	b,b
+	.call monitor_getaddress
+	pop	b
+	store	b,[a]
+.endfunc
+
+	org 400
+.func monitor_printaddress
+	li	b,2
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	li	a,0x20
+	.call printchar
+.endfunc
+
+.func monitor_getaddress
+	; sets the data page to the page entered, returns the address in A
+	push	b
+	li	b,2
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	pop	b
+	push	a
+	li	d,4
+	add	b,d
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call	hextobin
+	pop	b
+	page	b
+.endfunc
+
+.func hextobin
+	; A,B are two chars.  returns num in A
+	.if a >= 0x3a then hextobin_letter1 else hextobin_number1
+#hextobin_letter1
+	li	d,0x41
+	sub	a,d
+	li	d,0x0a
+	add	a,d
+	.goto	hextobin2
+#hextobin_number1
+	li	d,0x30
+	sub	a,d
+#hextobin2
+	add	a,a
+	add	a,a
+	add	a,a
+	add	a,a
+	.if b >= 0x3a then hextobin_letter2 else hextobin_number2
+#hextobin_letter2
+	li	d,0x41
+	sub	b,d
+	li	d,0x0a
+	add	b,d
+	.goto	hextobin3
+#hextobin_number2
+	li	d,0x30
+	sub	b,d
+#hextobin3
+	add	a,b
+.endfunc
+
+	org 500
+.func printstring
+	; page in A, string addr in B
+	page	a
+#printstring_loop
+	load	a,[b]
+	.if a == 0 then printstring_done
+
+;	.call printchar
+	out	a
+
+	inc	b
+	.goto printstring_loop
+#printstring_done
+.endfunc
+
+.func printchar
+;	 prints char in A
+	out	a
+
+;	push	a
+;	push	a
+;	li	d,0xf0
+;	nand	a,d
+;	nand	a,a
+;	li	b,0x10
+;	.call div_even
+;	li	c,0x7f
+;	nand	a,c
+;	nand	a,c
+;	out	a
+;	pop	a
+;	li	d,0x0f
+;	nand	a,d
+;	nand	a,a
+;	li	d,0x7f
+;	nand	a,d
+;	nand	a,d
+;	out	a
+;	pop	a
+.endfunc
+
+.func printhex
+	; prints a byte in A as two hex chars
+	push	a
+	push	a
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+	li	b,16
+	.call div_even
+	.if a < 0xa then printhex_num1
+	li	d,0xa
+	sub	a,d
+	li	d,0x41
+	add	a,d
+	.goto printhex2
+#printhex_num1
+	li	d,0x30
+	add	a,d
+#printhex2
+	.call	printchar
+	pop	a
+	li	b,0xf
+	nand	a,b
+	nand	a,a
+	.if a < 0xa then printhex_num2
+	li	d,0xa
+	sub	a,d
+	li	d,0x41
+	add	a,d
+	.goto printhex3
+#printhex_num2
+	li	d,0x30
+	add	a,d
+#printhex3
+	.call printchar
+	pop	a
+.endfunc
+
+	org	600
+.func readchar
+	; reads a char in A
+#inloop
+	in	a
+	.if a == 0 then inloop
+.endfunc
+
+.func readstring
+	;A = buffer page, B = buffer addr
+	; reads a string until RETURN, puts in buffer and null terminates
+
+	page	a
+#readstring_readloop
+	.call readchar
+	.if a == 0xd then readstring_return
+	.if a == 0x8 then readstring_backspace
+	.call printchar
+	store	a,[b]
+	inc	b
+	.goto readstring_readloop
+
+#readstring_backspace
+	; ignore if beginning of line
+	;;; TODO bug what if buffer doesn't start at 0?
+	.if b == 0 then readstring_readloop
+	dec	b
+;	li	d,0x00
+;	out	d
+;	li	d,0x04
+;	out	d
+;	li	d,0x82
+;	out	d
+;	li	d,0x80
+;	out	d
+;	li	d,0x00
+;	out	d
+;	li	d,0x00
+;	out	d
+	li	d,0x08
+	out	d
+	li	d,0x20
+	out	d
+	li	d,0x08
+	out	d
+	.goto	readstring_readloop
+
+#readstring_return
+	li	d,0x0d
+	out	d
+	li	d,0x20
+	out	d
+;	; home
+;	li	d,0x00
+;	out	d
+;	li	d,0x03
+;	out	d
+
+	;null terminate
+	li	a,0
+	store	a,[b]
+.endfunc
+
+	org	700
+.func div
+	; A = A / B
+	li	c,0
+	.if b == 0 then div_done
+
+	; check special cases: b is negative (b>128)
+	.if b < 0 then div_neg_b
+	;if a is negative initially (a>127) then subtract b until a becomes positive
+#div_negadjust
+	.if a >= 0 then divwhile
+	sub	a,b
+	inc	c
+	.goto div_negadjust
+#divwhile
+	.if a < b then div_done
+	sub	a,b
+	inc	c
+	.goto	divwhile
+#div_neg_b
+	; b is very large.  if a is positive, then a/b==0
+	.if a >= 0 then div_done
+	.if a < b then div_done
+	.if a != b then div_negadjust
+	; a==b
+	li	c,1
+#div_done
+	.move	a,c
+.endfunc
+
+.func div_even
+	; A = A / B
+	; only works if A%B is 0
+	li	c,0
+#divewhile
+	.if a == 0 then divewhileend
+	sub	a,b
+	inc	c
+	.goto divewhile
+#divewhileend
+	sub	a,a
+	add	a,c
+.endfunc
+
+.func mod
+	; A = A % B
+	.if b == 0 then mod0
+	; special case: b>127
+	.if b < 0 then mod_neg_b
+#mod_negadjust
+	.if a >= 0 then modwhile
+	sub	a,b
+	.goto mod_negadjust
+#modwhile
+	.if a < b then modwhileend
+	sub	a,b
+	.goto modwhile
+#mod0
+	li	a,0
+	.goto modwhileend
+#mod_neg_b
+	; b is > 127
+	; if a is positive, then just return a
+	.if a >= 0 then modwhileend
+	; if a < b then return a
+	.if a < b then modwhileend
+	.if a != b then mod_negadjust
+	; a == b, so return 0
+	li	a,0
+#modwhileend
+.endfunc
+
+	org 800
+.func mul
+	; A = A * B
+	sub	c,c
+#mulloop
+	.if b == 0 then mulend
+	add	c,a
+	dec	b
+	.goto mulloop
+#mulend
+	.move a,c
+.endfunc
+
+.func clearscreen
+	; resets screen and homes cursor
+	li	d,0x80
+	out	d
+;	; home
+;	li	d,0x00
+;	out	d
+;	li	d,0x03
+;	out	d
+;	; clear
+;	li	d,0x00
+;	out	d
+;	li	d,0x01
+;	out	d
+
+.endfunc
+
+.func readprompt
+	;move to new line and display > prompt
+	li	d,0x0d
+	out	d
+	li	d,0x20
+	out	d
+	li	d,0x3e
+	out	d
+
+;	;clears second line, puts cursor at beginning, prints prompt
+;	
+;	; put cursor on second line
+;	li	d,0x0c
+;	out	d
+;	li	d,0x00
+;	out	d
+;
+;	;print 16 spaces
+;	li	c,16
+;#readprompt_clr
+;	li	d,0x82
+;	out	d
+;	li	d,0x80
+;	out	d
+;	dec	c
+;	.if c != 0 then readprompt_clr
+;
+;	; put cursor on second line again
+;	li	d,0x0c
+;	out	d
+;	li	d,0x00
+;	out	d
+;
+;	; print a > prompt
+;	li	d,0x83
+;	out	d
+;	li	d,0x8e
+;	out	d
+.endfunc
+
+	org f00
+.func identify_keychar
+	; A is page, B is testchar
+	; returns 0 if no match, otherwise keychar in A
+
+	; push data page
+	push	a
+	li	a,0x7e
+	page	a
+	
+	; c holds keychar addr
+	li	c,#keychars
+
+#identify_keychar_loop
+	;compare
+	;get char from keyword list
+	load	a,[c]
+
+	.if a == b then identify_keychar_match
+
+#identify_keychar_doesntmatch
+
+	;not a match.  move to next keychar
+
+	; advance c four forwards
+	inc	c
+	inc	c
+	inc	c
+	inc	c
+	; if it is zero, no keychars match
+	load	a,[c]
+	li	d,#identify_keychar_nomatches
+	skipnz	a
+	jalr	d,d
+	.goto identify_keychar_loop
+
+#identify_keychar_match
+	; the next char is the token
+	inc	c
+	inc	c
+	load	a,[c]
+	.goto identify_keychar_done
+
+#identify_keychar_nomatches
+
+	sub	a,a
+
+#identify_keychar_done
+	pop	d
+	page	d
+.endfunc
+
+; tokens:
+; known keywords are reduced to a single character
+; integers consist of one or more digits
+; strings are surrounded by ""
+; vars are # then one or more capital letters
+
+	org 1000
+.func tokenize
+	; generates a new command string with tokens replacing keywords
+	; A=buffer page, B=buffer addr, C=dest buffer addr
+	; returns 0 if no error, 1 if syntax error
+
+	page	a
+	;push the page
+	push	a
+
+	;save dest addr on stack
+	push	c
+
+#tokenize_loop
+	;get next char
+	load	a,[b]
+
+	;if it's 0, end of line
+	li	d,#tokenize_done
+	skipnz	a
+	jalr	d,d
+
+	; is it a space? just move forward
+	load	a,[b]
+	li	d,0x20
+	sub	a,d
+	li	d,#tokenize_notspace
+	skipz	a
+	jalr	d,d
+	inc	b
+	.goto tokenize_loop
+
+#tokenize_notspace
+	; is it a string? then copy and advance to next "
+	load	a,[b]
+	li	d,0x22
+	sub	a,d
+	li	d,#tokenize_notstring
+	skipz	a
+	jalr	d,d
+	pop	c
+
+#tokenize_stringcopyloop
+	load	a,[b]
+	store	a,[c]
+	inc	b
+	inc	c
+	load	a,[b]
+	li	d,0x22
+	sub	a,d
+	li	d,#tokenize_stringcopyloop
+	skipz	a
+	jalr	d,d
+
+	;put a space after the string
+	inc	b
+	li	d,0x22
+	store	d,[c]
+	inc	c
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+	.goto tokenize_loop
+
+#tokenize_notstring
+	;is it a number? match 0-9
+	load	a,[b]
+	li	d,0x30
+	sub	a,d
+	li	d,#tokenize_notnumber
+	skipge	a
+	jalr	d,d
+	li	d,0x0a
+	sub	a,d
+	li	d,#tokenize_notnumber
+	skipl	a
+	jalr	d,d
+
+	; copy the number over
+	pop	c
+#tokenize_numbercopyloop
+	load	a,[b]
+	store	a,[c]
+	inc	b
+	inc	c
+	load	a,[b]
+	li	d,0x30
+	sub	a,d
+	li	d,#tokenize_numbercopyloopdone
+	skipge	a
+	jalr	d,d
+	li	d,0x0a
+	sub	a,d
+	li	d,#tokenize_numbercopyloop
+	skipge	a
+	jalr	d,d
+
+#tokenize_numbercopyloopdone
+	; save a space
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+	.goto tokenize_loop
+
+#tokenize_notnumber
+
+	; check if it's a keychar
+	pop	c
+	pop	a
+	push	a
+	push	c
+	push	b
+	load	b,[b]
+	.call identify_keychar
+	pop	b
+	li	d,#tokenize_notkeychar
+	skipnz	a
+	jalr	d,d
+
+	;save keychar to output string
+	pop	c
+	store	a,[c]
+	inc	c
+	;include space
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+
+	;advance one char
+	inc	b
+	.goto tokenize_loop
+
+#tokenize_notkeychar
+	; check if it's a keyword
+
+	pop	c
+	pop	a
+	push	a
+	push	c
+
+	.call identify_keyword
+	li	d,#tokenize_notkey
+	skipnz	a
+	jalr	d,d
+
+	;save keyword token to output string
+	pop	c
+	store	a,[c]
+	inc	c
+	;include space separator
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+
+	;advance b to next space or EOL
+#tokenize_advance
+	inc	b
+	load	a,[b]
+
+	; if a == 0 then done
+	li	d,#tokenize_done
+	skipnz	a
+	jalr	d,d
+	; if a == ' ' then stop
+	li	d,0x20
+	sub	a,d
+	li	d,#tokenize_advance
+	skipz	a
+	jalr	d,d
+
+	.goto tokenize_loop
+
+#tokenize_notkey
+	;is it a var? match A-Z
+	load	a,[b]
+	li	d,0x41
+	sub	a,d
+	li	d,#tokenize_notvar
+	skipge	a
+	jalr	d,d
+	li	d,0x1a
+	sub	a,d
+	li	d,#tokenize_notvar
+	skipl	a
+	jalr	d,d
+
+	pop	c
+
+	;plant a # at beginning
+	li	d,0x23
+	store	d,[c]
+	inc	c
+
+	; copy the letters over
+#tokenize_varcopyloop
+	load	a,[b]
+	store	a,[c]
+	inc	b
+	inc	c
+	load	a,[b]
+	li	d,#tokenize_varcopyloopdone
+	skipnz	a
+	jalr	d,d
+	li	d,0x41
+	sub	a,d
+	li	d,#tokenize_varcopyloop
+	skipl	a
+	jalr	d,d
+
+#tokenize_varcopyloopdone
+	; save a space
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+	.goto tokenize_loop
+
+#tokenize_notvar
+	;syntax error
+	li	a,1
+	.goto tokenize_done_return
+
+#tokenize_done
+	pop	c
+	push	c
+	# null terminate output string
+	li	d,0
+	store	d,[c]
+	sub	a,a
+#tokenize_done_return
+	pop	c
+	pop	d
+.endfunc
+
+	org 1100
+
+.func identify_keyword
+	; A is page, B is address
+	; returns 0 if no match, otherwise keyword char in A
+
+	; push test address and data page
+	push	b
+	push	a
+	
+	; c holds keyword addr
+	li	c,#keywords
+
+#identify_keyword_loop
+	;compare
+	;get char from keyword list
+	li	a,0x7e
+	page	a
+	load	a,[c]
+
+	;is the keyword 0? then test better be 0 or ' '
+	.if a != 0 then identify_keyword_notendofkeyword
+	
+	;get char from test
+	pop	a
+	page	a
+	push	a
+	load	a,[b]
+
+	;if it's 0 or ' ', then match
+	.if a == 0 then identify_keyword_match
+	.if a == 0x20 then identify_keyword_match
+
+#identify_keyword_doesntmatch
+
+	;not a match.  reset b and move to next keyword
+	pop	a
+	pop	b
+	push	b
+	push	a
+	li	a,0x7e
+	page	a
+	;advance c to 0 if it's not there yet
+#identify_keyword_doesntmatch2
+	load	a,[c]
+	li	d,#identify_keyword_doesntmatch1
+	skipnz	a
+	jalr	d,d
+	inc	c
+	.goto	identify_keyword_doesntmatch2
+#identify_keyword_doesntmatch1
+
+	; advance c three forwards
+	inc	c
+	inc	c
+	inc	c
+	; if it is zero, no keywords match
+	load	a,[c]
+	li	d,#identify_keyword_nomatches
+	skipnz	a
+	jalr	d,d
+	.goto identify_keyword_loop
+
+#identify_keyword_notendofkeyword
+	; are we at end of test word? if so, no match
+	pop	a
+	page	a
+	push	a
+	load	a,[b]
+	.if a == 0 then identify_keyword_doesntmatch
+	.if a == 0x20 then identify_keyword_doesntmatch
+
+	;test if the letters are the same
+	li	d,0x7e
+	page	d
+	load	d,[c]
+
+	sub	a,d
+	li	d,#identify_keyword_doesntmatch
+	skipz	a
+	jalr	d,d
+
+	;not done with matching.  go to next character
+	inc	b
+	inc	c
+	.goto identify_keyword_loop
+
+#identify_keyword_match
+	; the next char is the token
+	li	d,0x7e
+	page	d
+	inc	c
+	load	a,[c]
+	.goto identify_keyword_done
+
+#identify_keyword_nomatches
+
+	sub	a,a
+
+#identify_keyword_done
+	pop	d
+	page	d
+	pop	d
+.endfunc
+
+	org 1200
+.func basic
+	; print "tiny basic"
+	li	a,0x7f
+	li	b,#basic_message
+	.call printstring
+	.call basic_init
+	.call initvar
+
+	; main basic loop
+#basicloop
+	.call clear_error
+	li	d,0x0d
+	out	d
+	li	d,0x20
+	out	d
+
+	; print "Ok" prompt
+	li	a,0x7f
+	li	b,#basic_prompt
+	.call printstring
+;	li	d,0x0d
+;	out	d
+	li	d,0x20
+	out	d
+
+	; read a string to fd00
+	li	a,0xfd
+	li	b,0
+	.call readstring
+
+	; convert it to tokens at fd80
+	.call tokenizeline
+	.if a == 0 then basicloop_handle
+	; print error
+	li	a,0x7f
+	li	b,#lexical_error
+	.call printstring
+	.goto basicloop
+
+#basicloop_handle
+	; if the first token is a line number, save line in program space
+	li	a,0xfd
+	page	a
+	li	c,0x80
+	load	a,[c]
+	.if a < 0x30 then basic_notprog
+	.if a >= 0x3a then basic_notprog
+
+	.call basic_saveline
+	.goto basicloop
+
+#basic_notprog
+	.call basic_doline
+	.goto basicloop
+.endfunc
+
+	org 1300
+.func tokenizeline
+	li	a,0xfd
+	li	b,0
+	li	c,0x80
+	.call tokenize
+;	li	a,0xfd
+;	li	b,0x80
+;	.call printstring
+;	li	a,0x0d
+;	out	a
+;	li	a,0x0a
+;	out	a
+;	li	a,0x20
+;	out	a
+.endfunc
+
+.func basic_init
+	; goes from pages 0x90 to 0xcf and sets to 0
+	li	a,0
+	li	c,0x90
+#basic_init_pageloop
+	page	c
+	li	b,0
+#basic_init_addrloop
+	li	d,0x20
+	sub	b,d
+	store	a,[b]
+	li	d,#basic_init_addrloop
+	skipz	b
+	jalr	d,d
+	inc	c
+	.if c != 0xd0 then basic_init_pageloop
+.endfunc
+
+.func basic_saveline
+	; copy line at fd80 to program space and link line number
+	; program space from pages 90 to af, tokenized program from b0 to cf
+	; each program line is given 0x20 space
+
+	; find end of line number in line
+	li	a,0xfd
+	page	a
+	li	b,0x80
+#basic_saveline_passlinenumber
+	inc	b
+	load	a,[b]
+	.if a != 0x20 then basic_saveline_passlinenumber
+
+	; now work forward to find the 0x00
+	sub	c,c
+#basic_saveline_findeol
+	inc	b
+	inc	c
+	load	a,[b]
+	.if a != 0 then basic_saveline_findeol
+
+	; c now holds number of bytes to save
+	
+	; push tokenized line between fd9f-fd80 to stack
+#basic_saveline_pushloop
+	load	a,[b]
+	push	a
+	dec	b
+	dec	c
+	.if c != 0 then basic_saveline_pushloop
+
+	; push fd1f to fd00 to stack
+	li	b,0x1f
+#basic_saveline_pushloop2
+	load	a,[b]
+	push	a
+	dec	b
+	.if b != 0xff then basic_saveline_pushloop2
+
+	; get line number
+	li	a,0xfd
+	li	b,0x80
+	.call dectobin
+
+	; divide it by eight to get the page number
+	push	a
+	li	d,0xf8
+	nand	a,d
+	nand	a,a
+	li	b,8
+	.call	div_even
+	li	d,0x90
+	add	a,d
+	page	a
+	.move	c,a
+
+	; last three bits * 32 is the address
+	pop	a
+	li	d,0x7
+	nand	a,d
+	nand	a,a
+	li	b,32
+	.call	mul
+
+	;copy string from stack
+	li	b,32
+#basic_saveline_poploop
+	pop	d
+	store	d,[a]
+	inc	a
+	dec	b
+	li	d,#basic_saveline_poploop
+	skipz	b
+	jalr	d,d
+
+	;advance page by 0x20 and copy tokenized from stack
+	li	d,0x20
+	add	c,d
+	page	c
+	sub	a,d
+#basic_saveline_poploop2
+	pop	c
+	store	c,[a]
+	inc	a
+	li	d,#basic_saveline_poploop2
+	skipz	c
+	jalr	d,d
+.endfunc
+
+	org 1400
+
+.func dectobin
+	;page in A, string addr in B terminated in ' ' or 0, returns num in A
+
+	page	a
+	sub	a,a
+#dectobin_digloop
+	load	c,[b]
+	; check if digit is a ' ' or  \0
+	li	d,#dectobin_digdone
+	skipnz	c
+	jalr	d,d
+	li	d,0x20
+	sub	c,d
+	li	d,#dectobin_digdone
+	skipnz	c
+	jalr	d,d
+
+	; multiply a = a * 10
+	push	b
+	li	b,10
+	.call	mul
+	pop	b
+
+	; add digit
+	load	c,[b]
+	add	a,c
+	li	d,0x30
+	sub	a,d
+
+	inc	b
+	.goto dectobin_digloop
+#dectobin_digdone
+.endfunc
+
+	org 1600
+.func doPRINT
+	; start at beginning of line
+	li	c,0x82
+
+#doprint_loop
+	; get the token
+	load	a,[c]
+	; handle " 
+	.if a == 0x22 then doprint_str
+	; handle ,
+	.if a == 0x2c then doprint_comma
+	; handle ;
+	.if a == 0x3b then doprint_semicolon
+	; handle eol
+	.if a == 0x00 then doprint_eol
+	; evaluate expression
+	.call eval_expression
+	li	c,0xff
+	load	c,[c]
+	.call print_integer
+	.goto doprint_loop
+
+#doprint_semicolon
+	; print a space separator and end
+	li	d,0x20
+	out	d
+
+	.goto doprint_done
+
+#doprint_comma
+	; print a space separator
+	li	d,0x20
+	out	d
+	inc	c
+	inc	c
+	.goto doprint_loop
+
+#doprint_eol
+	; print a newline and end
+	li	d,0x0d
+	out	d
+	li	d,0x20
+	out	d
+	.goto doprint_done
+
+#doprint_str
+	; advance past "
+	inc	c
+	; read chars and print until reach other "
+	load	a,[c]
+	.if a == 0x22 then doprint_str_done
+	.if a == 0x00 then doprint_eol
+	out	a
+	.goto doprint_str
+#doprint_str_done
+	inc	c
+	inc	c
+	.goto doprint_loop
+#doprint_done
+.endfunc
+
+	org 1700
+.func eval_expression
+
+	;C points to expression, A returns value, 0xff returns new C
+
+	;expression is: term | term + term [ + term ]* | term - term [ - term]*
+
+	; stop if there's a pending error
+	.call error_marked
+	li	d,#eval_expression_end
+	skipz	a
+	jalr	d,d
+
+	; get the first term
+	.call eval_term
+	li	c,0xff
+	load	c,[c]
+
+#eval_expression_loop
+	; stop if an error
+	push	a
+	.call error_marked
+	li	d,#eval_expression_errorstop
+	skipz	a
+	jalr	d,d
+	pop	a
+
+	; check for valid end tokens
+	push	a
+	load	b,[c]
+	push	c
+	li	d,0x7e
+	page	d
+	li	c,#endtokenlist
+#eval_validloop
+	load	a,[c]
+	.if a == b then eval_validend
+	.if a == 0 then eval_notvalidend
+	inc	c
+	.goto eval_validloop
+
+#eval_validend
+	li	d,0xfd
+	page	d
+	pop	c
+	pop	a
+	.goto eval_expression_end
+#eval_notvalidend
+	li	d,0xfd
+	page	d
+	pop	c
+	pop	a
+	
+	; check for arithmetic tokens: + or -
+	load	b,[c]
+	li	d,0x2b
+	sub	b,d
+	li	d,#eval_expression_plusminus
+	skipnz	b
+	jalr	d,d
+	load	b,[c]
+	li	d,0x2d
+	sub	b,d
+	li	d,#eval_expression_plusminus
+	skipnz	b
+	jalr	d,d
+
+	; otherwise error
+	.goto eval_expression_error
+
+#eval_expression_plusminus
+	; push operation
+	load	b,[c]
+	push	b
+
+	; save current sum into b
+	.move b,a
+
+	; move to next token
+	inc	c
+	; if nothing after the plus then error
+	load	a,[c]
+	li	d,#eval_expression_errorpopop
+	skipnz	a
+	jalr	d,d
+	inc	c
+
+	; get the next term
+	.call eval_term
+	li	c,0xff
+	load	c,[c]
+
+	; stop if an error
+	push	a
+	.call error_marked
+	li	d,#eval_expression_errorstoppop
+	skipz	a
+	jalr	d,d
+	pop	a
+
+	push	c
+	; reload the operation
+	pop	d
+	pop	c
+	push	d
+	li	d,0x2d
+	sub	c,d
+	li	d,#eval_expression_sub
+	skipnz	c
+	jalr	d,d
+	; add it
+	add	a,b
+	pop	c
+	.goto eval_expression_loop
+#eval_expression_sub
+	; subtract it
+	sub	b,a
+	.move	a,b
+	pop	c
+	.goto eval_expression_loop
+
+#eval_expression_errorstoppop
+	pop	d
+#eval_expression_errorstop
+	pop	a
+	.goto eval_expression_end
+#eval_expression_errorpopop
+	pop	d
+#eval_expression_error
+	li	a,1
+	.call mark_error
+#eval_expression_end
+	li	d,0xff
+	store	c,[d]
+.endfunc
+
+	org 1800
+.func eval_term
+
+	;C points to expression, A returns value, 0xff returns new C
+
+	;expression is: paren | paren * paren [ * paren ]* | paren / paren [ / paren]*
+
+	; stop if there's a pending error
+	.call error_marked
+	li	d,#eval_term_end
+	skipz	a
+	jalr	d,d
+
+	; get the first term
+	.call eval_paren
+	li	c,0xff
+	load	c,[c]
+
+#eval_term_loop
+	; stop if an error
+	push	a
+	.call error_marked
+	li	d,#eval_term_errorstop
+	skipz	a
+	jalr	d,d
+	pop	a
+
+	; check for end token 0x00
+	load	b,[c]
+	li	d,#eval_term_end
+	skipnz	b
+	jalr	d,d
+	
+	; check for arithmetic tokens: * or / or %
+	load	b,[c]
+	;* is 2a
+	li	d,0x2a
+	sub	b,d
+	li	d,#eval_term_multdiv
+	skipnz	b
+	jalr	d,d
+	;/ is 2f
+	li	d,5
+	sub	b,d
+	li	d,#eval_term_multdiv
+	skipnz	b
+	jalr	d,d
+	;% is 25
+	li	d,10
+	add	b,d
+	li	d,#eval_term_multdiv
+	skipnz	b
+	jalr	d,d
+
+	; otherwise done
+	.goto eval_term_end
+
+#eval_term_multdiv
+	; save operation
+	load	b,[c]
+	push	b
+
+	; save current product into b
+	.move b,a
+
+	; move to next token
+	inc	c
+	; if nothing after the * then error
+	load	a,[c]
+	li	d,#eval_term_errorpop
+	skipnz	a
+	jalr	d,d
+	inc	c
+
+	; get the next term
+	.call eval_paren
+	li	c,0xff
+	load	c,[c]
+
+	; stop if an error
+	push	a
+	.call error_marked
+	li	d,#eval_term_errorstoppop
+	skipz	a
+	jalr	d,d
+	pop	a
+
+	;swap a and b
+	push	a
+	push	b
+	pop	a
+	pop	b
+
+	pop	d
+	push	c
+	; reload the operation
+	li	c,0x2f
+	sub	c,d
+	li	d,#eval_term_div
+	skipnz	c
+	jalr	d,d
+	li	d,10
+	sub	c,d
+	li	d,#eval_term_mod
+	skipnz	c
+	jalr	d,d
+	; multiply it
+	.call	mul
+	pop	c
+	.goto eval_term_loop
+#eval_term_div
+	; divide it
+	.call	div
+	pop	c
+	.goto eval_term_loop
+#eval_term_mod
+	; mod it
+	.call	mod
+	pop	c
+	.goto eval_term_loop
+
+#eval_term_errorstoppop
+	pop	d
+#eval_term_errorstop
+	pop	a
+	.goto eval_term_end
+#eval_term_errorpop
+	pop	d
+#eval_term_error
+	li	a,1
+	.call mark_error
+#eval_term_end
+	li	d,0xff
+	store	c,[d]
+.endfunc
+
+	org 1900
+.func eval_paren
+	;expression is: numvar | ( expression )
+
+	; stop if there's a pending error
+	.call error_marked
+	li	d,#eval_paren_end
+	skipz	a
+	jalr	d,d
+
+	; is the first token a ( ?
+	load	a,[c]
+	.if a == 0x28 then eval_paren_paren
+
+	; get the first term
+	.call eval_numorvar
+	li	c,0xff
+	load	c,[c]
+	.goto eval_paren_end
+
+#eval_paren_paren
+	;advance to expression
+	inc	c
+	;no eol allowed
+	load	b,[c]
+	.if	b == 0x00 then eval_paren_error
+	inc	c
+
+	;parse it
+	.call eval_expression
+	li	c,0xff
+	load	c,[c]
+
+	;don't continue if an error
+	push	a
+	.call error_marked
+	li	d,#eval_paren_stoperror
+	skipz	a
+	jalr	d,d
+	pop	a
+
+	;there better be a ) next
+	load	b,[c]
+	.if b != 0x29 then eval_paren_error
+	inc	c
+	load	b,[c]
+	.if b == 0x00 then eval_paren_end
+	inc	c
+	.goto eval_paren_end
+
+#eval_paren_error
+	li	a,1
+	.call mark_error
+	.goto eval_paren_end
+#eval_paren_stoperror
+	pop	a
+#eval_paren_end
+	li	d,0xff
+	store	c,[d]
+.endfunc
+
+	org 1a00
+.func eval_numorvar
+
+	; parses an integer token or returns a variable value
+
+	; stop if there's a pending error
+	.call error_marked
+	.if a != 0 then eval_numorvar_end
+
+	; up to three numbers
+	; get the first
+	load	a,[c]
+
+	; check for var
+	.if a == 0x23 then eval_numorvar_var
+
+	; check for not number or var
+	.if a < 0x30 then eval_numorvar_error
+	.if a > 0x39 then eval_numorvar_error
+
+	; adjust from ascii
+	li	b,0x30
+	sub	a,b
+	inc	c
+	; get tens place
+	load	b,[c]
+	; stop if space
+	.if b == 0x20 then eval_numorvar_numdone
+	; multiply hundreds place by 10
+	li	b,10
+	.call	mul
+	; reload tens place and add it
+	load	b,[c]
+	add	a,b
+	li	b,0x30
+	sub	a,b
+	inc	c
+	; get ones place
+	load	b,[c]
+	; stop if space
+	.if b == 0x20 then eval_numorvar_numdone
+	; multiply 100s and 10s by 10
+	li	b,10
+	.call	mul
+	load	b,[c]
+	add	a,b
+	li	b,0x30
+	sub	a,b
+	inc	c
+
+#eval_numorvar_numdone
+	; next thing should be space or eol
+	load	b,[c]
+	.if b == 0x00 then eval_numorvar_end
+	inc	c
+	.goto eval_numorvar_end
+#eval_numorvar_error
+	li	a,1
+	.call mark_error
+	.goto eval_numorvar_end
+#eval_numorvar_var
+	.call eval_var
+	li	c,0xff
+	load	c,[c]
+#eval_numorvar_end
+	li	d,0xff
+	store	c,[d]
+.endfunc
+
+	org 1b00
+.func print_integer
+	; prints integer in A
+	li	c,0
+	push	a
+	li	b,100
+	.call	div
+	.if	a == 0 then print_value_tens
+	li	b,0x30
+	add	a,b
+	out	a
+	li	c,1
+#print_value_tens
+	pop	a
+	push	a
+	li	b,10
+	.call	div
+	.call	mod
+	.if c == 1 then print_value_tens_doprint
+	.if a == 0 then print_value_ones
+#print_value_tens_doprint
+	li	b,0x30
+	add	a,b
+	out	a
+#print_value_ones
+	pop	a
+	li	b,10
+	.call	mod
+	li	b,0x30
+	add	a,b
+	out	a
+.endfunc
+
+.func eval_var
+	;look up the variable
+	.move b,c
+	.call getvar
+	push	a
+	; advance to whitespace
+#eval_var_loop
+	inc	c
+	load	a,[c]
+	.if a == 0x20 then eval_var_loop_incdone
+	.if a == 0x00 then eval_var_loop_done
+	.goto eval_var_loop
+#eval_var_loop_incdone
+	inc	c
+#eval_var_loop_done
+	li	d,0xff
+	store	c,[d]
+	pop	a
+.endfunc
+
+
+	org 1c00
+.func mark_error
+	; function is called if a syntax error was detected
+	li	b,0x21
+	out	b
+	li	d,0xd1
+	page	d
+	li	d,1
+	store	a,[d]
+	li	d,0xfd
+	page	d
+.endfunc
+.func error_marked
+	; function returna A!=0 if an error was previously detected
+	li	d,0xd1
+	page	d
+	li	d,1
+	load	a,[d]
+	li	d,0xfd
+	page	d
+;	li	a,0
+.endfunc
+.func clear_error
+	; function clears error codes
+	li	d,0xd1
+	page	d
+	li	d,1
+	sub	c,c
+	store	c,[d]
+	li	d,0xfd
+	page	d
+.endfunc
+.func printerror
+	li	d,0xd1
+	page	d
+	li	d,1
+	load	c,[d]
+	.if	c == 1 then printerror_syntax
+	.if	c == 2 then printerror_undefinedvar
+	.if	c == 3 then printerror_undefinedcommand
+	.if	c == 5 then printerror_return
+	.if	c == 6 then printerror_gosub
+	.goto printerror_done
+#printerror_syntax
+	li	a,0x7f
+	li	b,#syntax_error
+	.call printstring
+	.goto printerror_done
+#printerror_undefinedvar
+	li	a,0x7f
+	li	b,#undefinedvar_error
+	.call printstring
+	.goto printerror_done
+#printerror_undefinedcommand
+	li	a,0x7f
+	li	b,#undefinedcommand_error
+	.call printstring
+	.goto printerror_done
+#printerror_return
+	li	a,0x7f
+	li	b,#return_error
+	.call printstring
+	.goto printerror_done
+#printerror_gosub
+	li	a,0x7f
+	li	b,#gosub_error
+	.call printstring
+	.goto printerror_done
+#printerror_done
+.endfunc
+
+	org 1d00
+
+; variable storage at page d0
+;	d000 holds addr of next empty var entry
+
+.func initvar
+	li	d,0xd0
+	page	d
+	sub	d,d
+	li	c,1
+	store	c,[d]
+	store	d,[c]
+.endfunc
+
+.func setvar
+	; input: fd:B points to variable name, A holds value
+	; if variable doesn't exist, make it
+
+	.move	c,a
+	.call lookupvar
+	.if a != 0 then setvar_set
+	push	c
+	; find place for new var
+	li	d,0xd0
+	page	d
+	sub	d,d
+	load	c,[d]
+	; advance past #
+	inc	b
+	; copy var name
+#setvar_copyname
+	li	d,0xfd
+	page	d
+	load	a,[b]
+	li	d,0xd0
+	page	d
+	store	a,[c]
+	inc	b
+	inc	c
+	.if a != 0x20 then setvar_copyname
+	; set the value
+	pop	a
+	store	a,[c]
+	inc	c
+	; update the lastvar pointer
+	sub	d,d
+	store	c,[d]
+	.goto setvar_done
+#setvar_set
+	li	d,0xd0
+	page	d
+	store	c,[a]
+#setvar_done
+	li	d,0xfd
+	page	d
+.endfunc
+
+.func getvar
+	; input: fd:B points to variable name
+	; A returns value of variable.  error raised if no var
+	.call lookupvar
+	.if a == 0 then getvar_error
+	li	d,0xd0
+	page	d
+	load	a,[a]
+	.goto getvar_done
+
+#getvar_error
+	li	a,2
+	.call mark_error
+#getvar_done
+	li	d,0xfd
+	page	d
+.endfunc
+
+.func lookupvar
+	; input: fd:B points to variable name
+	; A returns address of match, or 0 no match
+
+	; move past #
+	inc	b
+	; push var name start
+	push	b
+	
+	;first variable here
+	li	c,1
+
+#lookup_var_loop
+	; check if any more variables
+	li	d,0xd0
+	page	d
+	li	d,0
+	load	d,[d]
+	.if c >= d then lookup_var_nomatches
+
+	; reset test name
+	pop	b
+	push	b
+#lookup_var_charloop
+	;get char from test
+	li	d,0xfd
+	page	d
+	load	a,[b]
+	;get char from varlist
+	push	b
+	li	d,0xd0
+	page	d
+	load	b,[c]
+	.if a != b then lookup_var_nomatch
+	.if a == 0x20 then lookup_var_yesmatch
+	pop	b
+	inc	b
+	inc	c
+	.goto lookup_var_charloop
+#lookup_var_yesmatch
+	pop	b
+	; move pointer to value
+	inc	c
+	.move	a,c
+	.goto lookup_var_done
+#lookup_var_nomatch
+	pop	b
+	;advance to next variable
+#lookup_var_advanceloop
+	load	a,[c]
+	.if a == 0x20 then lookup_var_advanceend
+	inc	c
+	.goto lookup_var_advanceloop
+#lookup_var_advanceend
+	; move to next var
+	inc	c
+	inc	c
+	.goto lookup_var_loop
+
+#lookup_var_nomatches
+	sub	a,a
+#lookup_var_done
+	pop	b
+	li	d,0xfd
+	page	d
+.endfunc
+
+	org 1e00
+.func doLET
+	; starting point is either 0x80 or 0x82, depending on whether keyword LET is present
+	li	c,0x80
+	load	a,[c]
+	.if a == 0x23 then doletadvance
+
+	; first thing should be a var name
+	li	c,0x82
+	load	a,[c]
+	.if a != 0x23 then dolet_error
+	
+	; advance past the variable name to the ' '
+#doletadvance
+	inc	c
+	load	a,[c]
+	.if a == 0 then dolet_error
+	.if a != 0x20 then doletadvance
+
+	; next should be an =
+	inc	c
+	load	a,[c]
+	.if a != 0x3d then dolet_error
+
+	; advance to expression
+	inc	c
+	load	a,[c]
+	.if a == 0 then dolet_error
+	inc	c
+
+	.call eval_expression
+	; stop if an error
+	push	a
+	.call error_marked
+	li	d,#dolet_done
+	skipz	a
+	jalr	d,d
+	pop	a
+
+	; assign the variable
+	li	b,0x80
+	load	c,[b]
+	.if c != 0x4c then dolet_letpresent
+	inc	b
+	inc	b
+#dolet_letpresent
+	.call setvar
+	.goto dolet_done
+	
+#dolet_error
+	li	a,1
+	.call mark_error
+#dolet_done
+.endfunc
+
+.func doLIST
+	li	c,0x90
+	li	b,0
+#doLIST_loop
+	page	c
+	load	a,[b]
+	li	d,#doLIST_skipline
+	skipnz	a
+	jalr	d,d
+	li	a,0x0d
+	out	a
+	li	a,0x20
+	out	a
+	.move	a,c
+	.call printstring
+#doLIST_skipline
+	li	d,0x20
+	add	b,d
+	li	d,#doLIST_loop
+	skipz	b
+	jalr	d,d
+	inc	c
+	.if c != 0xb0 then doLIST_loop
+.endfunc
+
+	org 1f00
+.func doCLS
+	li	d,0x01
+	out	d
+	li	d,0x80
+	out	d
+	li	c,0xff
+#docls_delay
+	li	d,#docls_delay
+	dec	c
+	skipz	c
+	jalr	d,d
+	li	d,0x20
+	out	d
+.endfunc
+
+	org 2000
+.func basic_initrun
+	; set current line number to 0, error code to 0
+	li	d,0xd1
+	page	d
+	sub	c,c
+	sub	d,d
+	store	d,[c]
+	inc	c
+	store	d,[c]
+	; set basic stack to empty
+	li	d,0xd2
+	page	d
+	sub	c,c
+	li	d,1
+	store	d,[c]
+.endfunc
+
+.func basic_getrunline
+	; sets the current line number to the next line of the program and copies the line to fd80
+	; returns A = 1 if end of program
+
+	; use current line number to determine page and address
+	li	d,0xd1
+	page	d
+	sub	d,d
+	load	a,[d]
+	; line number on stack
+	push	a
+	; divide it by eight to get the page number into c
+	push	a
+	li	d,0xf8
+	nand	a,d
+	nand	a,a
+	li	b,8
+	.call	div_even
+	li	d,0xb0
+	add	a,d
+	.move	c,a
+
+	; last three bits * 32 is the address
+	pop	a
+	li	d,0x7
+	nand	a,d
+	nand	a,a
+	li	b,32
+	.call	mul
+
+	; put page in b, addr in c
+	.move b,c
+	.move c,a
+
+	; find next valid program line
+	page	b
+#basic_getrun_findlineloop
+	load	a,[c]
+	; if valid, run it
+	.if a != 0 then basic_getrunline_copy
+
+	; advance line
+	li	d,0x20
+	add	c,d
+	; increment line number on stack
+	pop	a
+	inc	a
+	push	a
+	li	d,#basic_getrun_findlineloop
+	skipz	c
+	jalr	d,d
+	; advance page
+	inc	b
+	page	b
+	.if b == 0xd0 then basic_getrun_stop
+	.goto basic_getrun_findlineloop
+
+#basic_getrunline_copy
+	; copy line to fd80
+	sub	b,b
+#basic_getrunline_copyloop
+	; copy until 0
+	load	a,[c]
+	push	a
+	inc	c
+	inc	b
+	li	d,#basic_getrunline_copyloop
+	skipz	a
+	jalr	d,d
+
+	; set page to fd
+	li	d,0xfd
+	page	d
+	li	d,0x80
+	add	b,d
+	dec	b
+#basic_getrunline_copyloop2
+	; pop until reach fd80
+	pop	a
+	store	a,[b]
+	dec	b
+	.if b != 0x7f then basic_getrunline_copyloop2
+	sub	a,a
+	.goto basic_getrun_done
+
+#basic_getrun_stop
+	li	a,1
+#basic_getrun_done
+	; update line number
+	li	d,0xd1
+	page	d
+	sub	d,d
+	pop	b
+	store	b,[d]
+	li	d,0xfd
+	page	d
+.endfunc
+
+	org 2100
+.func basic_run
+#basic_runloop
+	; get the next line into fd80
+	.call basic_getrunline
+
+	.if a == 1 then basic_run_stop
+
+	; if it's an END then stop
+	li	c,0x80
+	load	a,[c]
+	.if a == 0x45 then basic_run_stop
+
+	; do the line
+	.call basic_doline
+
+	; if there's an error then stop
+	.call error_marked
+	.if a != 0 then basic_run_stop
+
+	; advance one line
+	li	d,0xd1
+	page	d
+	sub	d,d
+	load	c,[d]
+	inc	c
+	store	c,[d]
+
+	; if reached end of program space, stop
+	.if c == 0 then basic_run_stop
+
+	; check for CTRL-C
+	sub	a,a
+;	in	a
+	.if	a == 0x03 then basic_run_stop
+
+	.goto basic_runloop
+
+#basic_run_stop
+	.call clear_error
+.endfunc
+
+.func doRUN
+	.call basic_initrun
+	.call basic_run
+.endfunc
+
+	org 2200
+.func doGOTO
+	li	c,0x82
+	.call eval_expression
+	push	a
+	.call error_marked
+	.if a != 0 then dogoto_end
+	pop	a
+	li	d,0xd1
+	page	d
+	sub	d,d
+	; RUN will increment this
+	dec	a
+	store	a,[d]
+#dogoto_end
+	li	d,0xfd
+	page	d
+.endfunc
+
+.func doGOSUB
+	li	c,0x82
+	.call eval_expression
+	push	a
+	.call error_marked
+	.if a != 0 then dogosub_end
+	pop	a
+	li	d,0xd1
+	page	d
+	sub	d,d
+	load	b,[d]
+	dec	a
+	store	a,[d]
+	li	d,0xd2
+	page	d
+	sub	d,d
+	load	d,[d]
+	store	b,[d]
+	inc	d
+	.if d == 0 then dogosub_error
+	sub	c,c
+	store	d,[c]
+	.goto dogosub_end
+#dogosub_error
+	li	a,6
+	.call mark_error
+#dogosub_end
+	li	d,0xfd
+	page	d
+.endfunc
+
+.func doRETURN
+	li	d,0xd2
+	page	d
+	sub	c,c
+	load	b,[c]
+	dec	b
+	.if b == 0 then doreturn_error
+	load	a,[b]
+	store	d,[c]
+	li	d,0xd1
+	page	d
+	sub	d,d
+	store	a,[d]
+	.goto doreturn_end
+
+#doreturn_error
+	li	a,5
+	.call mark_error
+#doreturn_end
+	li	d,0xfd
+	page	d
+.endfunc
+
+	org 2300
+.func doIF
+	; if takes form
+	; IF expr comp expr THEN expr
+	li	c,0x82
+
+	# get and push first value
+	.call eval_expression
+	push	a
+	.call error_marked
+	.if a != 0 then doif_end
+	pop	a
+	push	a
+	li	d,0xff
+	load	c,[d]
+
+	# get and push operator
+	load	a,[c]
+	inc	c
+	inc	c
+	push	a
+
+	# get and push second value
+	.call eval_expression
+	push	a
+	.call error_marked
+	.if a != 0 then doif_end
+	pop	a
+	li	d,0xff
+	load	c,[d]
+	.move	b,a
+
+	# save token address
+	.move	d,c
+
+	# do the comparison
+	pop	c
+	pop	a
+
+	push	d
+
+	li	d,0x3d
+	sub	c,d
+	li	d,#doif_eq
+	skipnz	c
+	jalr	d,d
+	li	d,0x3d
+	add	c,d
+
+	li	d,0x21
+	sub	c,d
+	li	d,#doif_ne
+	skipnz	c
+	jalr	d,d
+	li	d,0x21
+	add	c,d
+
+	li	d,0x3c
+	sub	c,d
+	li	d,#doif_lt
+	skipnz	c
+	jalr	d,d
+	li	d,0x3c
+	add	c,d
+
+	li	d,0x3e
+	sub	c,d
+	li	d,#doif_gt
+	skipnz	c
+	jalr	d,d
+	li	d,0x3e
+	add	c,d
+
+;	.if c == 0x3d then doif_eq
+;	.if c == 0x21 then doif_ne
+;	.if c == 0x3c then doif_lt
+;	.if c == 0x3e then doif_gt
+	pop	c
+	li	a,1
+	.call mark_error
+	.goto doif_end
+
+#doif_eq
+	sub	a,b
+	li	d,#doif_thenlocal
+	skipnz	a
+	jalr	d,d
+;	.if a == b then doif_thenlocal
+	.goto doif_else
+#doif_ne
+	sub	a,b
+	li	d,#doif_thenlocal
+	skipz	a
+	jalr	d,d
+;	.if a != b then doif_thenlocal
+	.goto doif_else
+#doif_gt
+	sub	b,a
+	li	d,#doif_thenlocal
+	skipge	b
+	jalr	d,d
+;	.if a > b then doif_thenlocal
+	.goto doif_else
+#doif_lt
+	sub	a,b
+	li	d,#doif_thenlocal
+	skipge	a
+	jalr	d,d
+;	.if a < b then doif_thenlocal
+	.goto doif_else
+#doif_thenlocal
+	.gotofar doif_then
+#doif_else
+	pop	c
+#doif_end
+.endfunc
+
+	org 2400
+#doif_then
+	pop	c
+	; move past THEN
+	load	a,[c]
+	.if a == 0x54 then doif_then2
+	li	a,1
+	.call	mark_error
+	.gotofar doif_end
+#doif_then2
+	inc	c
+	inc	c
+	# get goto address
+	.call eval_expression
+	push	a
+	.call error_marked
+	.if a != 0 then doif_endlocal
+	pop	a
+
+	#do the goto
+	li	d,0xd1
+	page	d
+	sub	d,d
+	dec	a
+	store	a,[d]
+	li	d,0xfd
+	page	d
+	.gotofar doif_end
+
+#doif_endlocal
+	.gotofar doif_end
+.endfunc
+
+	org 2500
+.func basic_doline
+	; fd:80 holds line to run
+
+	; check for LIST
+	li	d,0xfd
+	page	d
+	li	c,0x80
+	load	a,[c]
+
+
+;	.if a == 0x73 then basic_dolist
+	li	d,0x73
+	sub	a,d
+	li	d,#basic_dolist
+	skipnz	a
+	jalr	d,d
+
+	; check for CLS
+;	.if a == 0x63 then basic_docls
+	load	a,[c]
+	li	d,0x63
+	sub	a,d
+	li	d,#basic_docls
+	skipnz	a
+	jalr	d,d
+
+	; check for PRINT
+;	.if a == 0x50 then basic_doprint
+	load	a,[c]
+	li	d,0x50
+	sub	a,d
+	li	d,#basic_doprint
+	skipnz	a
+	jalr	d,d
+
+	; check for LET
+;	.if a == 0x4c then basic_dolet
+;	.if a == 0x23 then basic_dolet
+	load	a,[c]
+	li	d,0x23
+	sub	a,d
+	li	d,#basic_dolet
+	skipnz	a
+	jalr	d,d
+	li	d,41
+	sub	a,d
+	li	d,#basic_dolet
+	skipnz	a
+	jalr	d,d
+
+	; check for RUN
+;	.if a == 0x72 then basic_dorun
+	load	a,[c]
+	li	d,0x72
+	sub	a,d
+	li	d,#basic_dorun
+	skipnz	a
+	jalr	d,d
+
+	push	c
+	.gotofar basic_doline_continued
+
+#basic_doline_firstpage_done
+	pop	c
+	.goto basic_done
+
+#basic_doline_firstpage
+	pop	c
+
+	; check for empty line
+;	.if a == 0 then basic_done
+	load	a,[c]
+	li	d,#basic_done
+	skipnz	a
+	jalr	d,d
+
+	li	a,3
+	.call mark_error
+	.goto basic_done
+
+#basic_dolist
+	.call doLIST
+	.goto basic_done
+
+#basic_docls
+	.call doCLS
+	.goto basic_done
+
+#basic_doprint
+	.call doPRINT
+	.goto basic_done
+
+#basic_dolet
+	.call doLET
+	.goto basic_done
+
+#basic_dorun
+	.call doRUN
+	.goto basic_done
+
+#basic_done
+	.call error_marked
+	.if a == 0 then basic_line_ret
+	.call printerror
+;	.call printstring
+#basic_line_ret
+.endfunc
+
+	org 2600
+#basic_doline_continued
+	pop	c
+
+	; check for GOTO
+;	.if a == 0x47 then basic_dogoto
+	load	a,[c]
+	li	d,0x47
+	sub	a,d
+	li	d,#basic_dogoto
+	skipnz	a
+	jalr	d,d
+
+	; check for GOSUB
+;	.if a == 0x53 then basic_dogosub
+	load	a,[c]
+	li	d,0x53
+	sub	a,d
+	li	d,#basic_dogosub
+	skipnz	a
+	jalr	d,d
+
+	; check for RETURN
+;	.if a == 0x52 then basic_doreturn
+	load	a,[c]
+	li	d,0x52
+	sub	a,d
+	li	d,#basic_doreturn
+	skipnz	a
+	jalr	d,d
+
+	; check for IF
+;	.if a == 0x49 then basic_doif
+	load	a,[c]
+	li	d,0x49
+	sub	a,d
+	li	d,#basic_doif
+	skipnz	a
+	jalr	d,d
+
+	; check for CLEAR
+;	.if a == 0x65 then basic_doclear
+	load	a,[c]
+	li	d,0x65
+	sub	a,d
+	li	d,#basic_doclear
+	skipnz	a
+	jalr	d,d
+
+
+	push	c
+	.gotofar basic_doline_firstpage
+
+#basic_doline_gobacktofirstpage
+	push	c
+	.gotofar basic_doline_firstpage_done
+
+#basic_dogoto
+	.call doGOTO
+	.goto basic_doline_gobacktofirstpage
+
+#basic_dogosub
+	.call doGOSUB
+	.goto basic_doline_gobacktofirstpage
+
+#basic_doreturn
+	.call doRETURN
+	.goto basic_doline_gobacktofirstpage
+
+#basic_doif
+	.call doIF
+	.goto basic_doline_gobacktofirstpage
+
+#basic_doclear
+	.call initvar
+	.goto basic_doline_gobacktofirstpage
+
+	org 7e00
+#keychars
+	.str	"="
+		.str	"="
+	.str	"<"
+		.str	"<"
+	.str	">"
+		.str	">"
+	.str	"+"
+		.str	"+"
+	.str	"-"
+		.str	"-"
+	.str	"*"
+		.str	"*"
+	.str	"/"
+		.str	"/"
+	.str	"("
+		.str	"("
+	.str	")"
+		.str	")"
+	.str	","
+		.str	","
+	.str	"!"
+		.str	"!"
+	; ; char
+	db	0x3b
+	db	0
+		db	0x3b
+		db	0
+	db	0
+#keywords
+	.str	"PRINT"
+		.str	"P"
+	.str	"IF"
+		.str	"I"
+	.str	"THEN"
+		.str	"T"
+	.str	"GOTO"
+		.str	"G"
+	.str	"INPUT"
+		.str	"i"
+	.str	"LET"
+		.str	"L"
+	.str	"GOSUB"
+		.str	"S"
+	.str	"RETURN"
+		.str	"R"
+	.str	"LIST"
+		.str	"s"
+	.str	"RUN"
+		.str	"r"
+	.str	"END"
+		.str	"E"
+	.str	"FOR"
+		.str	"F"
+	.str	"TO"
+		.str	"t"
+	.str	"NEXT"
+		.str	"X"
+	.str	"STEP"
+		.str	"p"
+	.str	"RND"
+		.str	"n"
+	.str	"CLS"
+		.str	"c"
+	.str	"LOAD"
+		.str	"d"
+	.str	"MOD"
+		.str	"%"
+	.str	"CLEAR"
+		.str	"e"
+	db	0
+#endtokenlist
+	db	0x3b
+	.str	",)T<>=!"
+
+	org 7f00
+#monitor_message
+	.str	"RISCY MONITOR"
+#basic_message
+	.str	"TINY BASIC"
+#basic_prompt
+	.str	"OK"
+#newline
+	db	0x0d
+	db	0x20
+	db	0x00
+#lexical_error
+	.str	"CANNOT PARSE LINE"
+#syntax_error
+	.str	"SYNTAX ERROR"
+#undefinedvar_error
+	.str	"UNDEFINED VARIABLE"
+#undefinedcommand_error
+	.str	"UNKNOWN COMMAND"
+#return_error
+	.str	"RETURN WITHOUT GOSUB"
+#gosub_error
+	.str	"TOO MANY GOSUBS"

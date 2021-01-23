@@ -1,0 +1,6 @@
+	li	d,0xaa
+	stackpage	d
+	li	a,0xb5
+	push	a
+	pop	b
+	halt

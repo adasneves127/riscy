@@ -1,0 +1,983 @@
+	org	0
+	li	d,0xff
+	stackpage	d
+
+	.call setupdisplay
+	.call monitor_entry
+
+	halt
+
+	org	100
+.func setupdisplay
+	li	d,0x80
+	out	d
+;	li	d,0x02
+;	out	d
+;	li	d,0x02
+;	out	d
+;	li	d,0x0c
+;	out	d
+;	li	d,0x00
+;	out	d
+;	li	d,0x0f
+;	out	d
+;	li	d,0x00
+;	out	d
+;	li	d,0x01
+;	out	d
+.endfunc
+
+	org	200
+.func monitor_entry
+	; print out "RISCY Monitor"
+	li	a,0x7f
+	li	b,#monitor_message
+	.call	printstring
+#monitor
+	.call	readprompt
+	; read a line into 0xfd:0
+	li	a,0xfd
+	li	b,0
+	.call	readstring
+
+;	.call clearscreen
+	;get command
+	li	a,0xfd
+	page	a
+	li	b,0
+	load	a,[b]
+
+	;check command
+	.if a == 0x44 then domonitordump
+	.if a == 0x45 then domonitoredit
+	.if a == 0x47 then domonitorgo
+	.if a == 0x42 then domonitorbasic
+
+	.goto monitor
+
+#domonitordump
+	.call monitordump
+	.goto monitor
+#domonitoredit
+	.call monitoredit
+	.goto monitor
+#domonitorbasic
+	.call basic
+	.goto monitor
+#domonitorgo
+	li	b,2
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	pop	b
+	push	a
+	li	d,4
+	add	b,d
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call	hextobin
+	pop	c
+	jmpfar	a,a
+
+.endfunc
+
+	org 300
+.func monitordump
+	.call monitor_printaddress
+	sub	b,b
+	.call monitor_getaddress
+	.move	b,a
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+.endfunc
+
+.func monitoredit
+	; get value byte
+	li	b,7
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	push	a
+	sub	b,b
+	.call monitor_getaddress
+	pop	b
+	store	b,[a]
+.endfunc
+
+	org 400
+.func monitor_printaddress
+	li	b,2
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	li	a,0x20
+	.call printchar
+.endfunc
+
+.func monitor_getaddress
+	; sets the data page to the page entered, returns the address in A
+	push	b
+	li	b,2
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	pop	b
+	push	a
+	li	d,4
+	add	b,d
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call	hextobin
+	pop	b
+	page	b
+.endfunc
+
+.func hextobin
+	; A,B are two chars.  returns num in A
+	.if a >= 0x3a then hextobin_letter1 else hextobin_number1
+#hextobin_letter1
+	li	d,0x41
+	sub	a,d
+	li	d,0x0a
+	add	a,d
+	.goto	hextobin2
+#hextobin_number1
+	li	d,0x30
+	sub	a,d
+#hextobin2
+	add	a,a
+	add	a,a
+	add	a,a
+	add	a,a
+	.if b >= 0x3a then hextobin_letter2 else hextobin_number2
+#hextobin_letter2
+	li	d,0x41
+	sub	b,d
+	li	d,0x0a
+	add	b,d
+	.goto	hextobin3
+#hextobin_number2
+	li	d,0x30
+	sub	b,d
+#hextobin3
+	add	a,b
+.endfunc
+
+	org 500
+.func printstring
+	; page in A, string addr in B
+	page	a
+#printstring_loop
+	load	a,[b]
+	.if a == 0 then printstring_done
+
+	.call printchar
+
+	inc	b
+	.goto printstring_loop
+#printstring_done
+.endfunc
+
+.func printchar
+;	 prints char in A
+	out	a
+
+;	push	a
+;	push	a
+;	li	d,0xf0
+;	nand	a,d
+;	nand	a,a
+;	li	b,0x10
+;	.call div_even
+;	li	c,0x7f
+;	nand	a,c
+;	nand	a,c
+;	out	a
+;	pop	a
+;	li	d,0x0f
+;	nand	a,d
+;	nand	a,a
+;	li	d,0x7f
+;	nand	a,d
+;	nand	a,d
+;	out	a
+;	pop	a
+.endfunc
+
+.func printhex
+	; prints a byte in A as two hex chars
+	push	a
+	push	a
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+	li	b,16
+	.call div_even
+	.if a < 0xa then printhex_num1
+	li	d,0xa
+	sub	a,d
+	li	d,0x41
+	add	a,d
+	.goto printhex2
+#printhex_num1
+	li	d,0x30
+	add	a,d
+#printhex2
+	.call	printchar
+	pop	a
+	li	b,0xf
+	nand	a,b
+	nand	a,a
+	.if a < 0xa then printhex_num2
+	li	d,0xa
+	sub	a,d
+	li	d,0x41
+	add	a,d
+	.goto printhex3
+#printhex_num2
+	li	d,0x30
+	add	a,d
+#printhex3
+	.call printchar
+	pop	a
+.endfunc
+
+	org	600
+.func readchar
+	; reads a char in A
+#inloop
+	in	a
+	.if a == 0 then inloop
+.endfunc
+
+.func readstring
+	;A = buffer page, B = buffer addr
+	; reads a string until RETURN, puts in buffer and null terminates
+
+	page	a
+#readstring_readloop
+	.call readchar
+	.if a == 0xd then readstring_return
+	.if a == 0x8 then readstring_backspace
+	.call printchar
+	store	a,[b]
+	inc	b
+	.goto readstring_readloop
+
+#readstring_backspace
+	; ignore if beginning of line
+	;;; TODO bug what if buffer doesn't start at 0?
+	.if b == 0 then readstring_readloop
+	dec	b
+;	li	d,0x00
+;	out	d
+;	li	d,0x04
+;	out	d
+;	li	d,0x82
+;	out	d
+;	li	d,0x80
+;	out	d
+;	li	d,0x00
+;	out	d
+;	li	d,0x00
+;	out	d
+	li	d,0x08
+	out	d
+	li	d,0x20
+	out	d
+	li	d,0x08
+	out	d
+	.goto	readstring_readloop
+
+#readstring_return
+	li	d,0x0d
+	out	d
+	li	d,0x0a
+	out	d
+;	; home
+;	li	d,0x00
+;	out	d
+;	li	d,0x03
+;	out	d
+
+	;null terminate
+	li	a,0
+	store	a,[b]
+.endfunc
+
+	org	700
+.func div
+	; only works if A is 7f or less
+	; A = A / B
+	li	c,0
+#divwhile
+	.if a < b then divwhileend
+	sub	a,b
+	inc	c
+	.goto divwhile
+#divwhileend
+	sub	a,a
+	add	a,c
+.endfunc
+
+.func div_even
+	; A = A / B
+	; only works if A%B is 0
+	li	c,0
+#divewhile
+	.if a == 0 then divewhileend
+	sub	a,b
+	inc	c
+	.goto divewhile
+#divewhileend
+	sub	a,a
+	add	a,c
+.endfunc
+
+.func mod
+	; A = A % B
+#modwhile
+	.if a < b then modwhileend
+	sub	a,b
+	.goto modwhile
+#modwhileend
+.endfunc
+
+
+.func mul
+	; A = A * B
+	sub	c,c
+#mulloop
+	.if b == 0 then mulend
+	add	c,a
+	dec	b
+	.goto mulloop
+#mulend
+	.move a,c
+.endfunc
+
+	org	800
+.func clearscreen
+	; resets screen and homes cursor
+	li	d,0x80
+	out	d
+;	; home
+;	li	d,0x00
+;	out	d
+;	li	d,0x03
+;	out	d
+;	; clear
+;	li	d,0x00
+;	out	d
+;	li	d,0x01
+;	out	d
+
+.endfunc
+
+.func readprompt
+	;move to new line and display > prompt
+	li	d,0x0d
+	out	d
+	li	d,0x0a
+	out	d
+	li	d,0x3e
+	out	d
+
+;	;clears second line, puts cursor at beginning, prints prompt
+;	
+;	; put cursor on second line
+;	li	d,0x0c
+;	out	d
+;	li	d,0x00
+;	out	d
+;
+;	;print 16 spaces
+;	li	c,16
+;#readprompt_clr
+;	li	d,0x82
+;	out	d
+;	li	d,0x80
+;	out	d
+;	dec	c
+;	.if c != 0 then readprompt_clr
+;
+;	; put cursor on second line again
+;	li	d,0x0c
+;	out	d
+;	li	d,0x00
+;	out	d
+;
+;	; print a > prompt
+;	li	d,0x83
+;	out	d
+;	li	d,0x8e
+;	out	d
+.endfunc
+
+
+; tokens:
+; known keywords are reduced to a single character
+; integers consist of one or more digits
+; strings are surrounded by ""
+; vars are # then one or more capital letters
+
+	org 1000
+.func tokenize
+	; generates a new command string with tokens replacing keywords
+	; A=buffer page, B=buffer addr, C=dest buffer addr
+	; returns 0 if no error, 1 if syntax error
+
+	page	a
+	;push the page
+	push	a
+
+	;save dest addr on stack
+	push	c
+
+#tokenize_loop
+	;get next char
+	load	a,[b]
+
+	;if it's 0, end of line
+	li	d,#tokenize_done
+	skipnz	a
+	jalr	d,d
+
+	; check if it's a keyword
+
+	pop	c
+	pop	a
+	push	a
+	push	c
+
+	.call identify_keyword
+	li	d,#tokenize_notkey
+	skipnz	a
+	jalr	d,d
+
+	;save keyword token to output string
+	pop	c
+	store	a,[c]
+	inc	c
+	;include space separator
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+
+	;advance b to next space or EOL
+#tokenize_advance
+	inc	b
+	load	a,[b]
+
+	; if a == 0 then done
+	li	d,#tokenize_done
+	skipnz	a
+	jalr	d,d
+	; if a == ' ' then stop
+	li	d,0x20
+	sub	a,d
+	li	d,#tokenize_advance
+	skipz	a
+	jalr	d,d
+
+	.goto tokenize_loop
+
+#tokenize_notkey
+	; is it a space? just move forward
+	load	a,[b]
+	.if a != 0x20 then tokenize_notspace
+	inc	b
+	.goto tokenize_loop
+
+#tokenize_notspace
+	; is it a string? then copy and advance to next "
+	.if a != 0x22 then tokenize_notstring
+	pop	c
+
+#tokenize_stringcopyloop
+	store	a,[c]
+	inc	b
+	inc	c
+	load	a,[b]
+	.if a != 0x22 then tokenize_stringcopyloop
+
+	;put a space after the string
+	inc	b
+	li	d,0x22
+	store	d,[c]
+	inc	c
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+	.goto tokenize_loop
+
+#tokenize_notstring
+	;is it a number? match 0-9
+	load	a,[b]
+	.if a < 0x30 then tokenize_notnumber
+	.if a >= 0x3a then tokenize_notnumber
+
+	; copy the number over
+	pop	c
+#tokenize_numbercopyloop
+	load	a,[b]
+	store	a,[c]
+	inc	b
+	inc	c
+	load	a,[b]
+	li	d,#tokenize_numbercopyloopdone
+	skipnz	a
+	jalr	d,d
+	li	d,0x20
+	sub	a,d
+	li	d,#tokenize_numbercopyloop
+	skipz	a
+	jalr	d,d
+
+#tokenize_numbercopyloopdone
+	; save a space
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+	.goto tokenize_loop
+
+#tokenize_notnumber
+	;is it a var? match A-Z
+	load	a,[b]
+	.if a < 0x41 then tokenize_notvar
+	.if a >= 0x5b then tokenize_notvar
+
+	pop	c
+
+	;plant a # at beginning
+	li	d,0x23
+	store	d,[c]
+	inc	c
+
+	; copy the letters over
+#tokenize_varcopyloop
+	load	a,[b]
+	store	a,[c]
+	inc	b
+	inc	c
+	load	a,[b]
+	li	d,#tokenize_varcopyloopdone
+	skipnz	a
+	jalr	d,d
+	li	d,0x20
+	sub	a,d
+	li	d,#tokenize_varcopyloop
+	skipz	a
+	jalr	d,d
+
+#tokenize_varcopyloopdone
+	; save a space
+	li	d,0x20
+	store	d,[c]
+	inc	c
+	push	c
+	.goto tokenize_loop
+
+#tokenize_notvar
+	;syntax error
+	li	a,1
+	.goto tokenize_done_return
+
+#tokenize_done
+	pop	c
+	push	c
+	# null terminate output string
+	li	d,0
+	store	d,[c]
+	sub	a,a
+#tokenize_done_return
+	pop	c
+	pop	d
+.endfunc
+
+	org 1100
+
+.func identify_keyword
+	; A is page, B is address
+	; returns 0 if no match, otherwise keyword char in A
+
+	; push test address and data page
+	push	b
+	push	a
+	
+	; c holds keyword addr
+	sub	c,c
+
+#identify_keyword_loop
+	;compare
+	;get char from keyword list
+	li	a,0x7e
+	page	a
+	load	a,[c]
+
+	;is the keyword 0? then test better be 0 or ' '
+	.if a != 0 then identify_keyword_notendofkeyword
+	
+	;get char from test
+	pop	a
+	page	a
+	push	a
+	load	a,[b]
+
+	;if it's 0 or ' ', then match
+	.if a == 0 then identify_keyword_match
+	.if a == 0x20 then identify_keyword_match
+
+#identify_keyword_doesntmatch
+
+	;not a match.  reset b and move to next keyword
+	pop	a
+	pop	b
+	push	b
+	push	a
+	li	a,0x7e
+	page	a
+	;advance c to 0 if it's not there yet
+#identify_keyword_doesntmatch2
+	load	a,[c]
+	li	d,#identify_keyword_doesntmatch1
+	skipnz	a
+	jalr	d,d
+	inc	c
+	.goto	identify_keyword_doesntmatch2
+#identify_keyword_doesntmatch1
+
+	; advance c three forwards
+	inc	c
+	inc	c
+	inc	c
+	; if it is zero, no keywords match
+	load	a,[c]
+	li	d,#identify_keyword_nomatches
+	skipnz	a
+	jalr	d,d
+	.goto identify_keyword_loop
+
+#identify_keyword_notendofkeyword
+	; are we at end of test word? if so, no match
+	pop	a
+	page	a
+	push	a
+	load	a,[b]
+	.if a == 0 then identify_keyword_doesntmatch
+	.if a == 0x20 then identify_keyword_doesntmatch
+
+	;test if the letters are the same
+	li	d,0x7e
+	page	d
+	load	d,[c]
+
+	sub	a,d
+	li	d,#identify_keyword_doesntmatch
+	skipz	a
+	jalr	d,d
+
+	;not done with matching.  go to next character
+	inc	b
+	inc	c
+	.goto identify_keyword_loop
+
+#identify_keyword_match
+	; the next char is the token
+	li	d,0x7e
+	page	d
+	inc	c
+	load	a,[c]
+	.goto identify_keyword_done
+
+#identify_keyword_nomatches
+
+	sub	a,a
+
+#identify_keyword_done
+	pop	d
+	page	d
+	pop	d
+.endfunc
+
+	org 1200
+.func basic
+	; print "tiny basic"
+	li	a,0x7f
+	li	b,#basic_message
+	.call printstring
+	.call basic_init
+
+	; main basic loop
+#basicloop
+	li	d,0x0d
+	out	d
+	li	d,0x0a
+	out	d
+
+	; print "Ok" prompt
+	li	a,0x7f
+	li	b,#basic_prompt
+	.call printstring
+	li	d,0x0d
+	out	d
+	li	d,0x0a
+	out	d
+
+	; read a string to fd00
+	li	a,0xfd
+	li	b,0
+	.call readstring
+
+	; convert it to tokens at fd80
+	.call tokenizeline
+
+	; if the first token is a line number, save line in program space
+	li	a,0xfd
+	page	a
+	li	c,0x80
+	load	a,[c]
+	.if a < 0x30 then basic_notprog
+	.if a >= 0x3a then basic_notprog
+
+	.call basic_saveline
+	.goto basicloop
+
+#basic_notprog
+	.call basic_doline
+	.goto basicloop
+	
+;	.goto basicloop
+.endfunc
+
+.func tokenizeline
+	li	a,0xfd
+	li	b,0
+	li	c,0x80
+	.call tokenize
+	li	a,0xfd
+	li	b,0x80
+	.call printstring
+.endfunc
+
+	org 1300
+.func basic_init
+	; goes from pages 0x90 to 0xaf and sets to 0
+	li	a,0
+	li	c,0x90
+#basic_init_pageloop
+	page	c
+	li	b,0
+#basic_init_addrloop
+	dec	b
+	store	a,[b]
+	li	d,#basic_init_addrloop
+	skipz	b
+	inc	c
+	.if c != 0xb0 then basic_init_pageloop
+.endfunc
+
+.func basic_saveline
+	; copy line at fd80 to program space and link line number
+	; program space from pages 90 onwards
+	; each program line is given 0x20 space
+
+	; push fdbf to fd80 to stack
+	li	a,0xfd
+	page	a
+	li	b,0x9f
+#basic_saveline_pushloop
+	load	a,[b]
+	push	a
+	dec	b
+	.if b != 0x7f then basic_saveline_pushloop
+
+	; get line number
+	li	a,0xfd
+	li	b,0x80
+	.call dectobin
+
+	; divide it by eight to get the page number
+	push	a
+	li	d,0xf8
+	nand	a,d
+	nand	a,a
+	li	b,8
+	.call	div_even
+	page	a
+
+	; last three bits * 32 is the address
+	pop	a
+	li	d,0x7
+	nand	a,d
+	nand	a,a
+	li	b,32
+	.call	mul
+
+	;copy string from stack
+	li	c,32
+#basic_saveline_poploop
+	pop	b
+	store	b,[a]
+	inc	a
+	dec	c
+	li	d,#basic_saveline_poploop
+	skipz	c
+	jalr	d,d
+.endfunc
+
+	org 1400
+
+.func dectobin
+	;page in A, string addr in B terminated in ' ' or 0, returns num in A
+
+	page	a
+	sub	a,a
+#dectobin_digloop
+	load	c,[b]
+	; check if digit is a ' ' or  \0
+	li	d,#dectobin_digdone
+	skipnz	c
+	jalr	d,d
+	li	d,0x20
+	sub	c,d
+	li	d,#dectobin_digdone
+	skipnz	c
+	jalr	d,d
+
+	; multiply a = a * 10
+	push	b
+	li	b,10
+	.call	mul
+	pop	b
+
+	; add digit
+	load	c,[b]
+	add	a,c
+	li	d,0x30
+	sub	a,d
+
+	inc	b
+	.goto dectobin_digloop
+#dectobin_digdone
+.endfunc
+
+
+	org 1500
+.func basic_doline
+li a,0x59
+out a
+.endfunc
+
+	org 7e00
+#keywords
+	.str	"="
+		.str	"="
+	.str	"<>"
+		.str	"!"
+	.str	"<"
+		.str	"<"
+	.str	">"
+		.str	">"
+	.str	"<="
+		.str	"l"
+	.str	">="
+		.str	"g"
+	.str	"+"
+		.str	"+"
+	.str	"-"
+		.str	"-"
+	.str	"*"
+		.str	"*"
+	.str	"/"
+		.str	"/"
+	.str	"("
+		.str	"("
+	.str	")"
+		.str	")"
+	.str	","
+		.str	","
+	; ; char
+	db	0x3b
+	db	0
+		db	0x3b
+		db	0
+	.str	"PRINT"
+		.str	"P"
+	.str	"IF"
+		.str	"I"
+	.str	"THEN"
+		.str	"T"
+	.str	"GOTO"
+		.str	"G"
+	.str	"INPUT"
+		.str	"U"
+	.str	"LET"
+		.str	"L"
+	.str	"GOSUB"
+		.str	"S"
+	.str	"RETURN"
+		.str	"R"
+	.str	"LIST"
+		.str	"s"
+	.str	"RUN"
+		.str	"r"
+	.str	"END"
+		.str	"E"
+	.str	"FOR"
+		.str	"F"
+	.str	"TO"
+		.str	"P"
+	.str	"NEXT"
+		.str	"X"
+	.str	"STEP"
+		.str	"t"
+	.str	"DIM"
+		.str	"D"
+	.str	"RND"
+		.str	"n"
+	db	0
+
+	org 7f00
+#monitor_message
+	.str	"RISCY Monitor"
+#basic_message
+	.str	"Tiny BASIC"
+#basic_prompt
+	.str	"Ok"
+#newline
+	db	0x0d
+	db	0x0a
+	db	0x00

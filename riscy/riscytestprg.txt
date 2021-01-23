@@ -1,0 +1,68 @@
+0	sli C,0		11001000 = C8
+1	sli C,4		11011001 = D8
+2	sub A,A		10
+3	sub B,B		15
+4	sli D,0		CC
+5	sli D,1		CD
+6	sub A,D		13
+//6	dec A		81
+7	add B,D		77
+//7	inc B		84
+8	jalr D,C	5E
+
+------------------
+
+0	sli D,a		11101110	ee
+1	sli D,3		11001111	cf
+2	page D		00001111	0f
+3	sli B,b		11100111	e7
+4	sli B,5		11010101	d5
+5	sli A,0		11000000	c0
+6	sli A,3		11000011	c3
+7	store A,(B)	00110001	31
+8	dec B		10000101	85
+9	dec A		10000001	81
+a	sli C,0		11001000	c8
+b	sli C,7		11011011	db
+c	skipz A		01000000	40
+d	jalr D,C	01011110	5e
+e	sli C,0		11001000	c8
+f	sli C,1		11001001	c9
+10	sub D,D		00011111	1f
+11	jmpfar A,D	10010011	93
+12	sub C,C		00011010	1a
+13	jalr C,C	01011010	5a
+
+100	inc B		10000100	84
+101	load A,(B)	00100001	21
+102	inc B		10000100	84
+103	load A,(B)	00100001	21
+104	inc B		10000100	84
+105	load A,(B)	00100001	21
+106	sub C,C		00011010	1a
+107	jmpfar C,D	10011011	9b
+
+
+---------------------
+
+0	sli A,1 00 01	11000001 C1
+1	sli A,2 00 10	11000010 C2
+2	sli B,2 00 10	11000110 C6
+3	sli B,4 01 00	11010100 D4
+4	sli C,4 01 00	11011000 D8
+5 	sli C,8 10 00	11101000 E8
+6	sli D,9 10 01	11101101 ED
+7	sli D,6 01 10	11011110 DE
+8	nop			 00
+9	add A,B		01110001 71
+a	sub C,A		00011000 18
+b	inc D		10001100 8C
+c	dec B		10001101 8D
+d	sub D,D		00011111 1F
+e	load A,(D)	00100011 23
+f	nand D,D	01101111 6F 
+10	nop			 00
+11	nand D,D	01101111 6F
+12	jalr D,D	01011111 5F
+
+

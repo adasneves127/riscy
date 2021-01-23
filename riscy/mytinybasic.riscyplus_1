@@ -1,0 +1,235 @@
+	org	0
+	li	d,0x85
+	stackpage	d
+
+; set up the display
+	li	d,0x82
+	out	d
+	li	d,0x82
+	out	d
+	li	d,0x8c
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x8f
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x81
+	out	d
+
+; print out a prompt
+	li	a,0x2
+	li	b,#msg
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#printstring
+	jmpfar	d,d
+
+; read a string into 0xff:0
+	li	a,0xff
+	li	b,0
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#readstring
+	jmpfar	d,d
+
+; echo the string back
+	li	c,0
+	push	c
+	li	c,1
+	li	d,#printstring
+	jmpfar	d,d
+
+	halt
+
+
+	org	100
+
+; printstring takes a page:address of a string in a:b
+; return addr in d, return page on stack
+
+#printstring
+	push	d
+	push	b
+	push	a
+
+; set page to data
+	page	a
+
+#printstring_loop
+	load	a,[b]
+
+; if zero, skip to end
+	li	d,#printstring_done
+	skipnz	a
+	jalr	d,d
+
+; call print char
+	li	c,1
+	push	c
+	li	d,#printchar
+	jalr	d,d
+
+; move to next char and repeat
+	inc	b
+	li	d,#printstring_loop
+	jalr	d,d
+
+#printstring_done
+	pop	a
+	pop	b
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+; printchar takes a char in a
+; return addr in d, return page on stack
+
+#printchar
+	push	a
+	push	b
+	push	d
+
+; backup char
+	push	a
+; get rid of lower four bits
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+
+; c is quotient
+	sub	c,c
+#printchar_divloop
+; if a is 0, done with division
+	li	d,#printchar_divdone
+	skipnz	a
+	jalr	d,d
+; do subtraction
+	li	d,0x10
+	sub	a,d
+	inc	c
+; repeat loop
+	li	d,#printchar_divloop
+	jalr	d,d
+
+#printchar_divdone
+; send it out
+	out	c
+
+; second part
+; retrieve char
+	pop	a
+	li	d,0x0f
+	nand	a,d
+	nand	a,a
+; send it out
+	out	a
+
+	pop	d
+	pop	b
+	pop	a
+	pop	c
+	jmpfar	d,d
+
+; readchar returns a char in a
+; return addr in d, return page on stack
+#readchar
+	push	d
+#inloop
+	li	d,#inloop
+	in	a
+	skipnz	a
+	jalr	d,d
+
+	pop	d
+	pop	c
+	jmpfar	d,d
+
+; readstring takes a buffer page:addr in a:b
+; reads a string until RETURN; puts it in buffer and null terminates it
+; return addr in d, return page on stack
+
+#readstring
+	push	a
+	push	b
+	push	d
+
+	page	a
+
+#readstring_readloop
+; read a character
+	li	c,1
+	push	c
+	li	d,#readchar
+	jmpfar	d,d
+
+; char is in a.  check if RETURN
+	li	c,0xd
+	sub	a,c
+	li	d,#readstring_return
+	skipnz	a
+	jalr	d,d
+	add	a,c
+
+; check if BACKSPACE
+	li	c,0x8
+	sub	a,c
+	li	d,#readstring_backspace
+	skipnz	a
+	jalr	d,d
+	add	a,c
+
+; print the character
+	li	c,1
+	push	c
+	li	d,#printchar
+	jalr	d,d
+
+; save it to the buffer
+	store	a,[b]
+	inc	b
+
+; repeat
+	li	d,#readstring_readloop
+	jalr	d,d
+
+#readstring_backspace
+; if b is 0, ignore
+	li	d,#readstring_readloop
+	skipnz	b
+	jalr	d,d
+
+; decrement index
+	dec	b
+
+; TODO: delete char and shift cursor left
+
+	li	d,#readstring_readloop
+	jalr	d,d
+
+#readstring_return
+; TODO: print to display to home, scroll
+
+; null terminate
+	li	a,0
+	store	a,[b]
+
+	pop	d
+	pop	b
+	pop	a
+	pop	c
+	jmpfar	d,d
+
+
+	org	200
+#msg
+        db      0x54
+        db      0x79
+        db      0x70
+        db      0x65
+        db      0x3a
+        db      0x20
+        db      0

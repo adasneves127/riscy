@@ -1,0 +1,405 @@
+	org	0
+	li	d,0xff
+	stackpage	d
+
+	.call setupdisplay
+	.call monitor_entry
+
+	halt
+
+	org	100
+.func setupdisplay
+	li	d,0x02
+	out	d
+	li	d,0x02
+	out	d
+	li	d,0x0c
+	out	d
+	li	d,0x00
+	out	d
+	li	d,0x0f
+	out	d
+	li	d,0x00
+	out	d
+	li	d,0x01
+	out	d
+.endfunc
+
+	org	200
+.func monitor_entry
+	; print out "RISCY Monitor"
+	li	a,0x7f
+	li	b,#monitor_message
+	.call	printstring
+#monitor
+	.call	readprompt
+	; read a line into 0xfd:0
+	li	a,0xfd
+	li	b,0
+	.call	readstring
+
+	.call clearscreen
+	;get command
+	li	a,0xfd
+	page	a
+	li	b,0
+	load	a,[b]
+
+	;check command
+	.if a == 0x44 then domonitordump
+	.if a == 0x45 then domonitoredit
+	.if a == 0x47 then domonitorgo
+
+	.goto monitor
+
+#domonitordump
+	.call monitordump
+	.goto monitor
+#domonitoredit
+	.call monitoredit
+	.goto monitor
+#domonitorgo
+	li	b,2
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	pop	b
+	push	a
+	li	d,4
+	add	b,d
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call	hextobin
+	pop	c
+	jmpfar	a,a
+
+.endfunc
+
+	org 300
+.func monitordump
+	.call monitor_printaddress
+	.call monitor_getaddress
+	.move	b,a
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+	li	a,0x20
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printhex
+.endfunc
+
+.func monitoredit
+	; get value byte
+	li	b,7
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	push	a
+	sub	b,b
+	.call monitor_getaddress
+	pop	b
+	store	b,[a]
+.endfunc
+
+	org 400
+.func monitor_printaddress
+	li	b,2
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	load	a,[b]
+	.call printchar
+	inc	b
+	li	a,0x20
+	.call printchar
+.endfunc
+
+.func monitor_getaddress
+	; sets the data page to the page entered, returns the address in A
+	push	b
+	li	b,2
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call hextobin
+	pop	b
+	push	a
+	li	d,4
+	add	b,d
+	load	a,[b]
+	inc	b
+	load	b,[b]
+	.call	hextobin
+	pop	b
+	page	b
+.endfunc
+
+.func hextobin
+	; A,B are two chars.  returns num in A
+	.if a > 0x39 then hextobin_letter1 else hextobin_number1
+#hextobin_letter1
+	li	d,0x41
+	sub	a,d
+	li	d,0x0a
+	add	a,d
+	.goto	hextobin2
+#hextobin_number1
+	li	d,0x30
+	sub	a,d
+#hextobin2
+	add	a,a
+	add	a,a
+	add	a,a
+	add	a,a
+	.if b > 0x39 then hextobin_letter2 else hextobin_number2
+#hextobin_letter2
+	li	d,0x41
+	sub	b,d
+	li	d,0x0a
+	add	b,d
+	.goto	hextobin3
+#hextobin_number2
+	li	d,0x30
+	sub	b,d
+#hextobin3
+	add	a,b
+.endfunc
+
+	org 500
+.func printstring
+	; page in A, string addr in B
+	page	a
+#printstring_loop
+	load	a,[b]
+	.if a == 0 then printstring_done
+
+	.call printchar
+
+	inc	b
+	.goto printstring_loop
+#printstring_done
+.endfunc
+
+.func printchar
+	push	a
+	; prints char in A
+	push	a
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+	li	b,0x10
+	.call div_even
+	li	c,0x7f
+	nand	a,c
+	nand	a,c
+	out	a
+	pop	a
+	li	d,0x0f
+	nand	a,d
+	nand	a,a
+	li	d,0x7f
+	nand	a,d
+	nand	a,d
+	out	a
+	pop	a
+.endfunc
+
+.func printhex
+	; prints a byte in A as two hex chars
+	push	a
+	push	a
+	li	d,0xf0
+	nand	a,d
+	nand	a,a
+	li	b,16
+	.call div_even
+	.if a <= 9 then printhex_num1
+	li	d,0xa
+	sub	a,d
+	li	d,0x41
+	add	a,d
+	.goto printhex2
+#printhex_num1
+	li	d,0x30
+	add	a,d
+#printhex2
+	.call	printchar
+	pop	a
+	li	b,0xf
+	nand	a,b
+	nand	a,a
+	.if a <= 9 then printhex_num2
+	li	d,0xa
+	sub	a,d
+	li	d,0x41
+	add	a,d
+	.goto printhex3
+#printhex_num2
+	li	d,0x30
+	add	a,d
+#printhex3
+	.call printchar
+	pop	a
+.endfunc
+
+	org	600
+.func readchar
+	; reads a char in A
+#inloop
+	in	a
+	.if a == 0 then inloop
+.endfunc
+
+.func readstring
+	;A = buffer page, B = buffer addr
+	; reads a string until RETURN, puts in buffer and null terminates
+
+	page	a
+#readstring_readloop
+	.call readchar
+	.if a == 0xd then readstring_return
+	.if a == 0x8 then readstring_backspace
+	.call printchar
+	store	a,[b]
+	inc	b
+	.goto readstring_readloop
+
+#readstring_backspace
+	; ignore if beginning of line
+	;;; TODO bug what if buffer doesn't start at 0?
+	.if b == 0 then readstring_readloop
+	dec	b
+	li	d,0x00
+	out	d
+	li	d,0x04
+	out	d
+	li	d,0x82
+	out	d
+	li	d,0x80
+	out	d
+	li	d,0x00
+	out	d
+	li	d,0x00
+	out	d
+	.goto	readstring_readloop
+
+#readstring_return
+	; home
+	li	d,0x00
+	out	d
+	li	d,0x03
+	out	d
+
+	;null terminate
+	li	a,0
+	store	a,[b]
+.endfunc
+
+	org	700
+.func div
+	; only works if A is 7f or less
+	; A = A / B
+	li	c,0
+#divwhile
+	.if a < b then divwhileend
+	sub	a,b
+	inc	c
+	.goto divwhile
+#divwhileend
+	sub	a,a
+	add	a,c
+.endfunc
+
+.func div_even
+	; A = A / B
+	; only works if A%B is 0
+	li	c,0
+#divewhile
+	.if a == 0 then divewhileend
+	sub	a,b
+	inc	c
+	.goto divewhile
+#divewhileend
+	sub	a,a
+	add	a,c
+.endfunc
+
+.func mod
+	; A = A % B
+#modwhile
+	.if a < b then modwhileend
+	sub	a,b
+	.goto modwhile
+#modwhileend
+.endfunc
+
+	org	800
+.func clearscreen
+	; resets screen and homes cursor
+	; home
+	li	d,0x00
+	out	d
+	li	d,0x03
+	out	d
+	; clear
+	li	d,0x00
+	out	d
+	li	d,0x01
+	out	d
+.endfunc
+
+.func readprompt
+	;clears second line, puts cursor at beginning, prints prompt
+	
+	; put cursor on second line
+	li	d,0x0c
+	out	d
+	li	d,0x00
+	out	d
+
+	;print 16 spaces
+	li	c,16
+#readprompt_clr
+	li	d,0x82
+	out	d
+	li	d,0x80
+	out	d
+	dec	c
+	.if c != 0 then readprompt_clr
+
+	; put cursor on second line again
+	li	d,0x0c
+	out	d
+	li	d,0x00
+	out	d
+
+	; print a > prompt
+	li	d,0x83
+	out	d
+	li	d,0x8e
+	out	d
+.endfunc
+
+	org 7f00
+#monitor_message
+	.str	"RISCY Monitor"
