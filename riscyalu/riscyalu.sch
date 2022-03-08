@@ -7,7 +7,7 @@ Sheet 1 1
 Title "RISCY Arithmetic Logic Unit"
 Date ""
 Rev ""
-Comp "Michael Black"
+Comp "Margaret Black"
 Comment1 ""
 Comment2 ""
 Comment3 ""

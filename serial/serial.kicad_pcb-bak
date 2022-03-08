@@ -3861,7 +3861,7 @@
   (gr_text "Baud\n150\n300\n600\n1200\n2400\n4800\n9600\n19200\n38400" (at 194.31 67.31) (layer F.Cu)
     (effects (font (size 1.5 1.5) (thickness 0.15)))
   )
-  (gr_text "Input from keyboard: 5V GND strobe CLS B7 B6 B5 B4 B3 B2 B1 B0" (at 87.63 87.63) (layer F.Cu)
+  (gr_text "Input from keyboard: B0 B1 B2 B3 B4 B5 B6 B7 CLS strobe GND 5V" (at 87.63 87.63) (layer F.Cu)
     (effects (font (size 1 1) (thickness 0.15)))
   )
   (gr_text "Output to video: 5V GND strobe CLS B7 B6 B5 B4 B3 B2 B1 B0" (at 73.66 1.27) (layer F.Cu) (tstamp 5FF2D054)

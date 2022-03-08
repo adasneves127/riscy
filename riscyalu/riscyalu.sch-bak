@@ -3077,10 +3077,10 @@ Wire Wire Line
 Wire Wire Line
 	9750 6500 10050 6500
 $Comp
-L Connector:Conn_01x02_Female J9
+L Connector:Conn_01x02_Female J10
 U 1 1 5FDECFF8
 P 10250 6400
-F 0 "J9" H 10278 6376 50  0000 L CNN
+F 0 "J10" H 10278 6376 50  0000 L CNN
 F 1 "Conn_01x02_Female" H 10278 6285 50  0000 L CNN
 F 2 "Connector_PinHeader_2.54mm:PinHeader_1x02_P2.54mm_Vertical" H 10250 6400 50  0001 C CNN
 F 3 "~" H 10250 6400 50  0001 C CNN

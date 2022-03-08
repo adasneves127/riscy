@@ -1,0 +1,97 @@
+; set up the display
+	li	d,0x02
+	out	d
+	li	d,0x02
+	out	d
+	li	d,0x0c
+	out	d
+	li	d,0x00
+	out	d
+	li	d,0x0f
+	out	d
+	li	d,0x00
+	out	d
+	li	d,0x01
+	out	d
+
+; set the data space to 100
+	li	d,0x1
+	page	d
+
+; use c as our index
+;	sub	c,c
+	sliu	c,#msg
+	slil	c,#msg
+
+#printloop
+; load a character
+	load	a,[c]
+
+; if it's a zero, skip to end
+	li	d,#done
+	skipnz	a
+	jalr	d,d
+
+; send it out
+	li	b,0x7f
+	nand	a,b
+	nand	a,b
+	out	a
+
+; increment index
+	inc	c
+
+; do it for second part
+	load	a,[c]
+	nand	a,b
+	nand	a,b
+	out	a
+	inc	c
+
+; repeat
+	li	d,#printloop
+	jalr	d,d 
+
+#done
+	li	d,#done
+	jalr	d,d
+
+	org	100
+#msg
+
+	db	0x4
+	db	0x8
+	db	0x6
+	db	0x9
+	db	0x2
+	db	0x0
+	db	0x4
+	db	0x1
+	db	0x6
+	db	0xc
+	db	0x6
+	db	0x9
+	db	0x6
+	db	0x3
+	db	0x6
+	db	0x5
+	db	0x2
+	db	0x1
+	db	0
+;	db	0x5
+;	db	0x3
+;	db	0x7
+;	db	0x7
+;	db	0x6
+;	db	0x5
+;	db	0x6
+;	db	0x5
+;	db	0x7
+;	db	0x4
+;	db	0x6
+;	db	0x9
+;	db	0x6
+;	db	0x5
+;	db	0x2
+;	db	0x1
+;	db	0
