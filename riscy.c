@@ -37,9 +37,9 @@ void reset()
 	PC=A=B=C=D=DATAPAGE=INSTPAGE=STACKPAGE=HALTED=SP=0;
 }
 
-void printRegs(unsigned long inst)
+void printRegs(unsigned long inst, unsigned char opCode, char* name)
 {
-	printf("%lu PC: %x, A: %x, B: %x, C: %x, D: %x, SP: %x, IPAGE: %x, DPAGE: %x, SPAGE: %x\n",inst,PC,A,B,C,D,SP,INSTPAGE,DATAPAGE,STACKPAGE);
+	printf("%04lu: PC: %02x, A: %02x, B: %02x, C: %02x, D: %02x, SP: %02x, IPAGE: %02x, DPAGE: %02x, SPAGE: %02x, ins:%02x, %s\n",inst,PC,A,B,C,D,SP,INSTPAGE,DATAPAGE,STACKPAGE, opCode, name);
 }
 
 void memoryWrite(unsigned char page, unsigned char address, unsigned char val)
@@ -75,7 +75,7 @@ void setreg(int r, unsigned char val)
 	}
 }
 
-void doInstruction()
+void doInstruction(unsigned long inst)
 {
 	char name[20];
 
@@ -308,8 +308,11 @@ void doInstruction()
 	{
 		strcpy(name,"ERROR");
 	}
-	if(debug)
-		printf("%s\n",name);
+	if(debug){
+		printRegs(inst, memory[(INSTPAGE << 8 )| (PC)], name);
+	} else{
+		printf("%lu\n", inst);
+	}
 }
 
 int main(int argc, char* argv[])
@@ -344,9 +347,8 @@ int main(int argc, char* argv[])
 //	for(inst=0; inst<1000000 && HALTED==0; inst++)
 	for(inst=0; HALTED==0; inst++)
 	{
-		doInstruction();
-		if(debug)
-			printRegs(inst);
+		doInstruction(inst);
+			
 	}
 
 //	for(int addr=0xd000; addr <= 0xd0ff; addr++)
