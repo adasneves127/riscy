@@ -1,0 +1,7 @@
+**/*.riscy.bin
+**/*.riscy.rom.bin
+**/*.dsn
+**/*.kicad_pcb-bak
+**/*.kicad_pcb.old
+**/*.ps
+**/*.sch-bak
